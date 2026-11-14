@@ -237,6 +237,7 @@ None yet.
 | 261114-e2e | Browser suite types into every field (Chromium/WebKit, desktop/mobile), 3 bugs fixed (API token tab blank, onboarding loop, phone menu off screen), container runner for linuxbe-cluster, ops testing guide | 2026-11-14 | worktree-agent-ae37f9c091b7c6d40 | [261114-e2e-focus-tests-and-ops-testing](./quick/261114-e2e-focus-tests-and-ops-testing/) |
 | 261114-wal | Wallonia PEB 2022-2023 adapted rent carried forward per lease (official examples as tests); announced Flemish 2028 ban no longer enforced, shown as notice | 2026-11-14 | 4e1eac2 | [261114-wal-wallonia-peb-and-flemish-plan](./quick/261114-wal-wallonia-peb-and-flemish-plan/) |
 | 261114-gcx | GoCardless per landlord on hosted (partner OAuth, encrypted token, revoke, webhooks by organisation), instance token only for self-hosted; access checks added to mandate/customer routes | 2026-11-14 | a2805fd | [261114-gcx-gocardless-per-landlord](./quick/261114-gcx-gocardless-per-landlord/) |
+| 261114-umk | Undo for mark month paid everywhere (overview, payments, contract page, toast, email link, API, MCP), exact restore from recorded before-state, internal notes | 2026-11-14 | 07834ac | [261114-umk-undo-mark-month-paid](./quick/261114-umk-undo-mark-month-paid/) |
 | 2026-10-29 | fast | sendWhatsApp can send a picture, video or document through the bridge (bridge on muncher updated too) | ✅ |
 
 ## Session Continuity
