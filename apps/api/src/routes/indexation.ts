@@ -34,6 +34,7 @@ import {
   type BrusselsEpcInfo,
   type IndexationBlockReason,
   type WalloniaPebInfo,
+  type FlandersAnnouncedRestriction,
   walloniaColumnsToStore,
   walloniaInputsFromLease,
 } from "../services/indexationCalc";
@@ -98,6 +99,7 @@ interface CalculationResult {
   formulaNote: string | undefined;
   brussels: BrusselsEpcInfo | null;
   wallonia: WalloniaPebInfo | null;
+  announcedRestriction: FlandersAnnouncedRestriction | null;
   indexationBlocked: IndexationBlockReason | null;
   effectiveDate: string;
   // Legal anniversary date of this indexation.
@@ -259,6 +261,7 @@ async function calculateLeaseIndexation(
     formulaNote,
     brussels,
     wallonia,
+    announcedRestriction,
     indexationBlocked,
     effectiveDate: effectiveDateStr,
     indexationDate,
@@ -307,6 +310,7 @@ async function calculateLeaseIndexation(
     formulaNote,
     brussels,
     wallonia,
+    announcedRestriction,
     indexationBlocked,
     effectiveDate: effectiveDateStr,
     indexationDate,
@@ -538,6 +542,7 @@ indexationRouter.get("/calculate/:leaseId", async (c) => {
       formulaNote: calc.formulaNote,
       brussels: calc.brussels,
       wallonia: calc.wallonia,
+      announcedRestriction: calc.announcedRestriction,
       indexationBlocked: calc.indexationBlocked,
     });
   } catch (error: unknown) {
@@ -643,6 +648,7 @@ indexationRouter.get("/preview", async (c) => {
       formulaNote: core.formulaNote,
       brussels: core.brussels,
       wallonia: core.wallonia,
+      announcedRestriction: core.announcedRestriction,
       indexationBlocked: core.indexationBlocked,
       currentRent:
         Number.isFinite(currentRent) && currentRent > 0 ? currentRent : null,

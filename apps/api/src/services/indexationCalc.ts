@@ -8,6 +8,7 @@ import {
   FLANDERS_EPC_FREEZE_FACTOR,
   FLANDERS_EPC_NEEDS_CORRECTION,
   FLANDERS_EPC_CORRECTION_FACTORS,
+  FLANDERS_FUTURE_BAN_IN_FORCE,
   FLANDERS_FUTURE_RESTRICTIONS,
   WALLONIA_PEB_INDEXATION_SHARE,
   WALLONIA_PEB_WINDOW_START,
@@ -174,6 +175,8 @@ export async function computeIndexationCore(input: {
   brussels: BrusselsEpcInfo | null;
   // Wallonia PEB rule of 2022-2023 (base rent and index used), else null.
   wallonia: WalloniaPebInfo | null;
+  // Flanders: announced (not voted) indexation ban that names this lease's label, else null.
+  announcedRestriction: FlandersAnnouncedRestriction | null;
   // Set when the rent may not be indexed at all; newRent then equals the current rent.
   indexationBlocked: IndexationBlockReason | null;
   effectiveDate: string;
@@ -350,6 +353,7 @@ export async function computeIndexationCore(input: {
     formulaNote: legal.note,
     brussels: legal.brussels,
     wallonia: legal.wallonia,
+    announcedRestriction: getFlandersAnnouncedRestriction(input.region, input.epcLabel, input.leaseType),
     indexationBlocked: legal.blocked,
     effectiveDate: effectiveDateStr,
     indexationDate: indexationDateStr,
@@ -733,6 +737,38 @@ export function applyBrusselsEpcRestriction(input: {
   };
 }
 
+export type FlandersAnnouncedRestriction = {
+  // First year of the announced indexation ban and the labels it names.
+  fromYear: number;
+  labels: string[];
+  // Always false until a decree is voted and FLANDERS_FUTURE_BAN_IN_FORCE is set.
+  inForce: boolean;
+};
+
+/**
+ * The announced Flemish indexation ban that would hit this lease, for a notice
+ * to the landlord, or null. Only residential leases (not student or commercial)
+ * whose EPC label is named. Returned whether or not the ban is in force.
+ */
+export function getFlandersAnnouncedRestriction(
+  region: string,
+  epcLabel: string | null,
+  leaseType: string
+): FlandersAnnouncedRestriction | null {
+  if (region !== "flanders" || leaseType === "student" || leaseType === "commercial") return null;
+  const label = epcLabel || "none";
+  const years = Object.keys(FLANDERS_FUTURE_RESTRICTIONS)
+    .map(Number)
+    .sort((a, b) => a - b);
+  for (const year of years) {
+    const r = FLANDERS_FUTURE_RESTRICTIONS[year]!;
+    if (r.bannedLabels.includes(label)) {
+      return { fromYear: year, labels: [...r.bannedLabels], inForce: FLANDERS_FUTURE_BAN_IN_FORCE };
+    }
+  }
+  return null;
+}
+
 type FlandersEpcResult = {
   newRent: number;
   factor: number;
@@ -773,15 +809,19 @@ export function getFlandersCorrectionFactor(epcLabel: string | null, anniversary
  *      anniversary month (FLANDERS_EPC_CORRECTION_FACTORS, column d for EPC D,
  *      efNone for E/F/G/none).
  *    - This correction is permanent for the contract's lifetime unless a better EPC is obtained.
- * 4. Future: from 2028 E/F banned, from 2030 D/E/F banned.
+ * 4. Announced, not law: no indexation for E and F from 2028
+ *    (FLANDERS_FUTURE_RESTRICTIONS). Only enforced when banInForce is true
+ *    (FLANDERS_FUTURE_BAN_IN_FORCE, false until a decree is published);
+ *    until then the result carries a notice (getFlandersAnnouncedRestriction).
  */
-function applyFlandersEpcRestriction(
+export function applyFlandersEpcRestriction(
   baseRent: number,
   unrestrictedNewRent: number,
   epcLabel: string | null,
   leaseStartDate: string,
   indexationDate: string,
   leaseType: string,
+  banInForce: boolean = FLANDERS_FUTURE_BAN_IN_FORCE,
 ): FlandersEpcResult {
   const label = epcLabel || "none";
   const leaseStart = new Date(leaseStartDate);
@@ -799,9 +839,9 @@ function applyFlandersEpcRestriction(
     return { newRent: unrestrictedNewRent, factor: 1.0, restricted: false, correctionApplied: false, correctionMonth: null, note: undefined };
   }
 
-  // Check future bans (2028+)
+  // Announced bans: only once a decree makes them law.
   const indexYear = indexDate.getFullYear();
-  for (const [yearStr, restriction] of Object.entries(FLANDERS_FUTURE_RESTRICTIONS)) {
+  for (const [yearStr, restriction] of banInForce ? Object.entries(FLANDERS_FUTURE_RESTRICTIONS) : []) {
     const year = Number(yearStr);
     if (indexYear >= year && restriction.bannedLabels.includes(label)) {
       return {

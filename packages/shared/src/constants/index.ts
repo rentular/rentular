@@ -433,13 +433,20 @@ export const FLANDERS_EPC_CORRECTION_FACTORS: Record<number, { d: number; efNone
   12: { d: 0.951977401, efNone: 0.903954802 },
 };
 
-// Future Flanders restrictions:
-// From 2028: E and F labels completely banned from indexation
-// From 2030: further restrictions (details TBD by Flemish government)
-export const FLANDERS_FUTURE_RESTRICTIONS = {
-  2028: { bannedLabels: ["E", "F"] as readonly string[] },
-  2030: { bannedLabels: ["D", "E", "F"] as readonly string[] },
-} as const;
+// Flanders, ANNOUNCED, NOT LAW. The Flemish coalition agreement 2024-2029
+// announces that the rent of homes with EPC label E or F may no longer be
+// indexed from 2028. No decree has been voted, and sources disagree on the
+// content (E and F, or a minimum label D). The 2030 measure some sources
+// mention is a ban on renting out E and F homes, not an indexation ban, so it
+// is not listed here. Rentular only shows a notice for affected leases.
+// When a decree is published: verify the exact labels, dates and which leases
+// it covers against the decree text, update FLANDERS_FUTURE_RESTRICTIONS, then
+// set FLANDERS_FUTURE_BAN_IN_FORCE to true so the calculation enforces it.
+export const FLANDERS_FUTURE_BAN_IN_FORCE: boolean = false;
+
+export const FLANDERS_FUTURE_RESTRICTIONS: Record<number, { bannedLabels: readonly string[] }> = {
+  2028: { bannedLabels: ["E", "F"] },
+};
 
 // EPC scores ordered from best to worst
 export const EPC_SCORES = ["A++", "A+", "A", "B", "C", "D", "E", "F", "G"] as const;
