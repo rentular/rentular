@@ -144,7 +144,7 @@ export const smokeTests: TestCase[] = [
         // The switcher sits in the sidebar on desktop and the menu on phones.
         const toggle = page.getByRole("button", { name: /^(EN|NL|FR|DE)$/ }).filter({ visible: true });
         if (!(await toggle.count())) {
-          await clickVisible(page, page.getByRole("button", { name: /menu/i }), "the mobile menu");
+          await clickVisible(page, page.getByRole("button", { name: "Open navigation" }), "the mobile menu");
         }
         await clickVisible(page, page.getByRole("button", { name: /^(EN|NL|FR|DE)$/ }), "the language switcher");
         await clickVisible(page, page.getByRole("button", { name: new RegExp(exp.label) }).or(page.getByRole("menuitem", { name: new RegExp(exp.label) })), `the ${exp.label} option`);

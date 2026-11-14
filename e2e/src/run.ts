@@ -101,8 +101,21 @@ async function main(): Promise<number> {
 
   for (const project of cfg.projects) {
     const { engine } = PROJECTS[project];
-    const browser = await (engine === "chromium" ? chromium : webkit).launch({ headless: !cfg.headed });
     console.log(`\n${project}`);
+    let browser: Browser;
+    try {
+      browser = await (engine === "chromium" ? chromium : webkit).launch({ headless: !cfg.headed });
+    } catch (err) {
+      // A missing browser must not hide the results of the other projects.
+      report.add({
+        project,
+        name: "launch browser",
+        status: "failed",
+        durationMs: 0,
+        error: `could not start ${engine}: ${err instanceof Error ? err.message.split("\n")[0] : String(err)}`,
+      });
+      continue;
+    }
     try {
       for (const test of tests) await runTest(browser, project, test, report);
     } finally {
