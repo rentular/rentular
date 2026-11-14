@@ -9,6 +9,8 @@ import {
   FLANDERS_EPC_NEEDS_CORRECTION,
   FLANDERS_EPC_CORRECTION_FACTORS,
   FLANDERS_FUTURE_RESTRICTIONS,
+  WALLONIA_PEB_INDEXATION_SHARE,
+  WALLONIA_PEB_WINDOW_START,
 } from "@rentular/shared/constants";
 import { calculateIndexedRent } from "@rentular/shared/validation";
 import { getHealthIndexValue, getLatestHealthIndex } from "./healthIndex";
@@ -148,6 +150,15 @@ export async function computeIndexationCore(input: {
   leaseRegistered?: boolean | null;
   // Current rent, used as the result when indexation is blocked. Defaults to baseRent.
   currentRent?: number | null;
+  // Wallonia: PEB label in force from 1 November 2022 to 31 October 2023, when
+  // set on the lease (explicitly, or stored at the first indexation). When
+  // null, the property's current EPC label is used.
+  walloniaPebLabel2022?: string | null;
+  // Wallonia: "loyer adapté PEB" and its base index, stored on the lease at the
+  // first indexation. When both are set they are used as is.
+  walloniaAdaptedRent?: number | null;
+  walloniaAdaptedIndex?: number | null;
+  walloniaAdaptedIndexMonth?: string | null;
 }): Promise<{
   currentIndex: number;
   currentIndexMonth: string;
@@ -161,6 +172,8 @@ export async function computeIndexationCore(input: {
   formulaNote: string | undefined;
   // Brussels details for the landlord (factor, label, anniversary period), else null.
   brussels: BrusselsEpcInfo | null;
+  // Wallonia PEB rule of 2022-2023 (base rent and index used), else null.
+  wallonia: WalloniaPebInfo | null;
   // Set when the rent may not be indexed at all; newRent then equals the current rent.
   indexationBlocked: IndexationBlockReason | null;
   effectiveDate: string;
@@ -239,6 +252,23 @@ export async function computeIndexationCore(input: {
     indexationDateStr = effectiveDateStr;
   }
 
+  // Wallonia: the base fixed by the 2022-2023 PEB rule, if the lease has one.
+  const wallonia =
+    input.region === "wallonia"
+      ? await resolveWalloniaPeb({
+          baseRent: input.baseRent,
+          baseIndex: input.baseIndex,
+          startDate: input.startDate,
+          leaseType: input.leaseType,
+          epcLabel: input.epcLabel,
+          indexationDate: indexationDateStr,
+          storedLabel: input.walloniaPebLabel2022 ?? null,
+          storedRent: input.walloniaAdaptedRent ?? null,
+          storedIndex: input.walloniaAdaptedIndex ?? null,
+          storedIndexMonth: input.walloniaAdaptedIndexMonth ?? null,
+        })
+      : null;
+
   // Apply EPC restrictions for a given "current" index value.
   const applyEpc = (atIndex: number) => {
     const unrestricted = calculateIndexedRent(input.baseRent, input.baseIndex, atIndex);
@@ -253,7 +283,7 @@ export async function computeIndexationCore(input: {
         registered: input.leaseRegistered ?? false,
         currentRent: input.currentRent ?? input.baseRent,
       });
-      return { unrestricted, newRent: r.newRent, factor: r.factor, epcRestricted: r.restricted, correctionApplied: r.correctionApplied, correctionMonth: null as number | null, note: r.note, brussels: r.info, blocked: r.blocked };
+      return { unrestricted, newRent: r.newRent, factor: r.factor, epcRestricted: r.restricted, correctionApplied: r.correctionApplied, correctionMonth: null as number | null, note: r.note, brussels: r.info, wallonia: null as WalloniaPebInfo | null, blocked: r.blocked };
     }
     if (input.region === "flanders") {
       const r = applyFlandersEpcRestriction(
@@ -264,10 +294,19 @@ export async function computeIndexationCore(input: {
         indexationDateStr,
         input.leaseType
       );
-      return { unrestricted, newRent: r.newRent, factor: r.factor, epcRestricted: r.restricted, correctionApplied: r.correctionApplied, correctionMonth: r.correctionMonth, note: r.note, brussels: null as BrusselsEpcInfo | null, blocked: null as IndexationBlockReason | null };
+      return { unrestricted, newRent: r.newRent, factor: r.factor, epcRestricted: r.restricted, correctionApplied: r.correctionApplied, correctionMonth: r.correctionMonth, note: r.note, brussels: null as BrusselsEpcInfo | null, wallonia: null as WalloniaPebInfo | null, blocked: null as IndexationBlockReason | null };
     }
-    // Wallonia: no EPC restrictions.
-    return { unrestricted, newRent: unrestricted, factor: 1.0, epcRestricted: false, correctionApplied: false, correctionMonth: null as number | null, note: undefined as string | undefined, brussels: null as BrusselsEpcInfo | null, blocked: null as IndexationBlockReason | null };
+    if (input.region === "wallonia" && wallonia) {
+      const r = applyWalloniaPebRestriction({
+        unrestrictedNewRent: unrestricted,
+        atIndex,
+        info: wallonia,
+        currentRent: input.currentRent ?? input.baseRent,
+      });
+      return { unrestricted, newRent: r.newRent, factor: r.factor, epcRestricted: r.restricted, correctionApplied: false, correctionMonth: null as number | null, note: r.note, brussels: null as BrusselsEpcInfo | null, wallonia: wallonia as WalloniaPebInfo | null, blocked: r.blocked };
+    }
+    // Wallonia lease outside the 2022-2023 PEB rule, or no regional rule.
+    return { unrestricted, newRent: unrestricted, factor: 1.0, epcRestricted: false, correctionApplied: false, correctionMonth: null as number | null, note: undefined as string | undefined, brussels: null as BrusselsEpcInfo | null, wallonia: null as WalloniaPebInfo | null, blocked: null as IndexationBlockReason | null };
   };
 
   const legal = applyEpc(currentIndex);
@@ -310,6 +349,7 @@ export async function computeIndexationCore(input: {
     correctionMonth: legal.correctionMonth,
     formulaNote: legal.note,
     brussels: legal.brussels,
+    wallonia: legal.wallonia,
     indexationBlocked: legal.blocked,
     effectiveDate: effectiveDateStr,
     indexationDate: indexationDateStr,
@@ -328,7 +368,236 @@ export async function computeIndexationCore(input: {
 // EPC restriction helper functions
 // =====================================================================
 
-export type IndexationBlockReason = "brussels_no_epc" | "brussels_not_registered";
+export type IndexationBlockReason = "brussels_no_epc" | "brussels_not_registered" | "wallonia_index_missing";
+
+export type WalloniaPebInfo = {
+  // PEB label of the 2022-2023 window ("none" without a certificate).
+  label: string;
+  // "lease": the label set on the lease; "property": the property's current label.
+  labelSource: "lease" | "property";
+  // Share of the increase allowed in the window: 1, 0.75, 0.5 or 0.
+  share: number;
+  // Anniversary of the lease in the window (YYYY-MM-DD).
+  windowAnniversary: string;
+  // How the indexation being computed relates to the window anniversary.
+  phase: "before" | "window" | "after";
+  // "Loyer adapté PEB", the base rent from the window on. Null when the label
+  // allowed full indexation (the contract base keeps applying) or when an index
+  // needed to compute it is missing.
+  adaptedRent: number | null;
+  // Health index of the month before the window anniversary, and that month (YYYY-MM).
+  adaptedIndex: number | null;
+  adaptedIndexMonth: string;
+  // Rent due before the window anniversary and the indexed rent at it (for the letter).
+  rentDueBefore: number | null;
+  indexedAtWindow: number | null;
+  // True when the adapted rent and index came from the lease (stored earlier).
+  fromLease: boolean;
+  // Set when a health index needed for the computation is missing (YYYY-MM).
+  missingIndexMonth: string | null;
+};
+
+const round2 = (x: number): number => Math.round(x * 100) / 100;
+
+/**
+ * Anniversary of a Walloon lease in the PEB window (1 November 2022 to
+ * 31 October 2023), as YYYY-MM-DD, or null when the lease took effect on or
+ * after 1 November 2022 (the rule does not apply to it).
+ */
+export function walloniaWindowAnniversary(startDate: string): string | null {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(startDate);
+  if (!m) return null;
+  if (startDate.slice(0, 10) >= WALLONIA_PEB_WINDOW_START) return null;
+  const month = Number(m[2]);
+  const day = Number(m[3]);
+  const year = month >= 11 ? 2022 : 2023;
+  // Through a Date so that 29 February becomes 1 March, like the other anniversary code.
+  return localYmd(new Date(year, month - 1, day));
+}
+
+/** YYYY-MM of the month before the month of a YYYY-MM-DD date. */
+function monthBeforeYm(ymd: string): string {
+  const y = Number(ymd.slice(0, 4));
+  const mo = Number(ymd.slice(5, 7));
+  const d = new Date(y, mo - 2, 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+
+/**
+ * Walloon "loyer adapté PEB" (decree of 19 October 2022): the rent due before
+ * the window anniversary plus the allowed share of the increase. The rent due
+ * is the rent indexed for the previous year (even if that indexation was never
+ * asked), or the contract rent when the window anniversary is the first one.
+ * Rounded to the cent at the end, as in the official examples.
+ */
+export function walloniaAdaptedRent(input: {
+  baseRent: number;
+  baseIndex: number;
+  windowIndex: number;
+  previousIndex: number | null;
+  share: number;
+}): { adaptedRent: number; rentDueBefore: number; indexedAtWindow: number } {
+  const indexed = (input.baseRent * input.windowIndex) / input.baseIndex;
+  const due =
+    input.previousIndex == null ? input.baseRent : (input.baseRent * input.previousIndex) / input.baseIndex;
+  return {
+    adaptedRent: round2(due + input.share * (indexed - due)),
+    rentDueBefore: round2(due),
+    indexedAtWindow: round2(indexed),
+  };
+}
+
+/**
+ * Work out the Walloon PEB base for a lease: the window anniversary, the label
+ * in force then and, for D to G or no certificate, the adapted rent and index.
+ * Values stored on the lease win, so a later certificate never changes the
+ * base. Returns null when the rule does not apply (lease in force from
+ * 1 November 2022 on, or a commercial lease, which follows federal law).
+ */
+export async function resolveWalloniaPeb(input: {
+  baseRent: number;
+  baseIndex: number;
+  startDate: string;
+  leaseType: string;
+  epcLabel: string | null;
+  indexationDate: string;
+  storedLabel: string | null;
+  storedRent: number | null;
+  storedIndex: number | null;
+  storedIndexMonth: string | null;
+}): Promise<WalloniaPebInfo | null> {
+  if (input.leaseType === "commercial") return null;
+  const windowAnniversary = walloniaWindowAnniversary(input.startDate);
+  if (!windowAnniversary) return null;
+
+  const storedLabel = input.storedLabel && input.storedLabel.trim() !== "" ? input.storedLabel : null;
+  const label = storedLabel ?? (input.epcLabel || "none");
+  const share = WALLONIA_PEB_INDEXATION_SHARE[label] ?? 0;
+  const indexationDate = input.indexationDate.slice(0, 10);
+  const phase: WalloniaPebInfo["phase"] =
+    indexationDate < windowAnniversary ? "before" : indexationDate === windowAnniversary ? "window" : "after";
+  const adaptedIndexMonth = monthBeforeYm(windowAnniversary);
+
+  const info: WalloniaPebInfo = {
+    label,
+    labelSource: storedLabel ? "lease" : "property",
+    share,
+    windowAnniversary,
+    phase,
+    adaptedRent: null,
+    adaptedIndex: null,
+    adaptedIndexMonth,
+    rentDueBefore: null,
+    indexedAtWindow: null,
+    fromLease: false,
+    missingIndexMonth: null,
+  };
+
+  const valid = (v: number | null): v is number => typeof v === "number" && Number.isFinite(v) && v > 0;
+  if (valid(input.storedRent) && valid(input.storedIndex)) {
+    return {
+      ...info,
+      adaptedRent: input.storedRent,
+      adaptedIndex: input.storedIndex,
+      adaptedIndexMonth: input.storedIndexMonth || adaptedIndexMonth,
+      fromLease: true,
+    };
+  }
+  if (share >= 1) return info;
+
+  const windowIndexRaw = await getHealthIndexValue(adaptedIndexMonth.slice(0, 4), adaptedIndexMonth.slice(5, 7));
+  if (!windowIndexRaw) return { ...info, missingIndexMonth: adaptedIndexMonth };
+  const windowIndex = Number(windowIndexRaw);
+
+  // The rent due before the window is the one indexed at the previous
+  // anniversary, when there was one (not for a lease in its first year).
+  const previousAnniversaryYear = Number(windowAnniversary.slice(0, 4)) - 1;
+  let previousIndex: number | null = null;
+  if (previousAnniversaryYear > Number(input.startDate.slice(0, 4))) {
+    const prevMonth = monthBeforeYm(`${previousAnniversaryYear}${windowAnniversary.slice(4)}`);
+    const raw = await getHealthIndexValue(prevMonth.slice(0, 4), prevMonth.slice(5, 7));
+    if (!raw) return { ...info, missingIndexMonth: prevMonth };
+    previousIndex = Number(raw);
+  }
+
+  const r = walloniaAdaptedRent({
+    baseRent: input.baseRent,
+    baseIndex: input.baseIndex,
+    windowIndex,
+    previousIndex,
+    share,
+  });
+  return { ...info, adaptedIndex: windowIndex, ...r };
+}
+
+/**
+ * Apply the Walloon PEB rule to one indexation.
+ *
+ * - Before the window anniversary, or a label that allowed full indexation and
+ *   no stored adapted rent: the standard indexation.
+ * - At the window anniversary: the adapted rent (D 75%, E 50% of the increase).
+ *   For F, G or no certificate the rent stays as it is (never above the rent
+ *   due before the window).
+ * - After it: adapted rent x current index / index of the month before the
+ *   window anniversary, for the rest of the lease.
+ * - A health index needed to compute the adapted rent is missing: no
+ *   indexation until it is available.
+ *
+ * Guard: never above the standard indexed rent.
+ */
+export function applyWalloniaPebRestriction(input: {
+  unrestrictedNewRent: number;
+  atIndex: number;
+  info: WalloniaPebInfo;
+  currentRent: number;
+}): {
+  newRent: number;
+  factor: number;
+  restricted: boolean;
+  note: string | undefined;
+  blocked: IndexationBlockReason | null;
+} {
+  const { info } = input;
+  const full = {
+    newRent: input.unrestrictedNewRent,
+    factor: 1.0,
+    restricted: false,
+    note: undefined,
+    blocked: null,
+  };
+  if (info.phase === "before") return full;
+  if (info.missingIndexMonth) {
+    return {
+      newRent: input.currentRent,
+      factor: 0,
+      restricted: true,
+      note: `Wallonia: the health index of ${info.missingIndexMonth} is needed for the 2022-2023 PEB rule and is missing`,
+      blocked: "wallonia_index_missing",
+    };
+  }
+  if (info.adaptedRent === null || info.adaptedIndex === null) return full;
+
+  if (info.phase === "window") {
+    const atWindow = info.share <= 0 ? Math.min(input.currentRent, info.adaptedRent) : info.adaptedRent;
+    return {
+      newRent: Math.min(input.unrestrictedNewRent, atWindow),
+      factor: info.share,
+      restricted: true,
+      note: `Wallonia PEB ${info.label}: ${info.share * 100}% of the increase in the 2022-2023 window, adapted rent ${info.adaptedRent.toFixed(2)}`,
+      blocked: null,
+    };
+  }
+
+  const indexed = round2((info.adaptedRent * input.atIndex) / info.adaptedIndex);
+  return {
+    newRent: Math.min(input.unrestrictedNewRent, indexed),
+    factor: info.share,
+    restricted: true,
+    note: `Wallonia: base rent ${info.adaptedRent.toFixed(2)} (adapted rent, PEB ${info.label}, ${info.windowAnniversary}), base index ${info.adaptedIndex.toFixed(2)}${info.fromLease ? ", stored on the lease" : ""}`,
+    blocked: null,
+  };
+}
+
 
 export type BrusselsEpcInfo = {
   // EPB label used for the decision ("none" without a certificate).

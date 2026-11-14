@@ -157,13 +157,18 @@ describe("computeIndexationCore: Flemish EPC correction after the freeze", () =>
     expect(r.correctionApplied).toBe(false);
   });
 
-  it("leaves Wallonia unchanged", async () => {
+  it("does not apply the Flemish factor in Wallonia (the Walloon PEB rule applies instead)", async () => {
     vi.setSystemTime(new Date("2026-06-01T12:00:00Z"));
-    mockIndices({ "2026-04": 139.33 });
+    // Statbel health index, base 2013.
+    mockIndices({ "2022-04": 119.59, "2023-04": 126.7, "2026-04": 139.33 });
     const r = await computeIndexationCore({ ...realLease, region: "wallonia" });
-    expect(r.newRent).toBe(862.98);
+    expect(r.unrestrictedNewRent).toBe(862.98);
     expect(r.correctionApplied).toBe(false);
     expect(r.correctionMonth).toBeNull();
+    // EPC E, anniversary 1 May 2023: 740.72 due + 50% x (784.75 - 740.72) = 762.74,
+    // then 762.74 x 139.33 / 126.70.
+    expect(r.wallonia?.adaptedRent).toBe(762.74);
+    expect(r.newRent).toBe(838.77);
   });
 
   it("keeps the freeze-period rule (EPC D gets 50% of the increase)", async () => {
