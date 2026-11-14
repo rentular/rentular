@@ -45,7 +45,9 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 
-type ExpiryChoice = "" | "30" | "90" | "365";
+// Radix Select reserves the empty string for "no selection" and throws on an
+// item with value "", which took the whole Settings page down.
+type ExpiryChoice = "never" | "30" | "90" | "365";
 
 interface TokenForm {
   name: string;
@@ -53,7 +55,7 @@ interface TokenForm {
   expiresInDays: ExpiryChoice;
 }
 
-const emptyForm: TokenForm = { name: "", scope: "read", expiresInDays: "" };
+const emptyForm: TokenForm = { name: "", scope: "read", expiresInDays: "never" };
 
 export function ApiTokensCard({ apiUrl }: { apiUrl: string }) {
   const t = useTranslations("settings");
@@ -99,9 +101,8 @@ export function ApiTokensCard({ apiUrl }: { apiUrl: string }) {
         body: JSON.stringify({
           name: form.name.trim(),
           scope: form.scope,
-          expiresInDays: form.expiresInDays
-            ? Number(form.expiresInDays)
-            : undefined,
+          expiresInDays:
+            form.expiresInDays === "never" ? undefined : Number(form.expiresInDays),
         }),
       });
       const body = await res.json().catch(() => ({}));
@@ -216,7 +217,7 @@ export function ApiTokensCard({ apiUrl }: { apiUrl: string }) {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">{t("tokenNoExpiry")}</SelectItem>
+                <SelectItem value="never">{t("tokenNoExpiry")}</SelectItem>
                 <SelectItem value="30">
                   {t("tokenExpiryDays", { days: 30 })}
                 </SelectItem>
