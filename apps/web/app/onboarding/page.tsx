@@ -38,6 +38,31 @@ interface FormErrors {
 
 const STEP_ICONS = [Building2, Users, FileText, CreditCard];
 
+// Form field helper. Defined at module level: a component declared inside the
+// page is a new type on every render, which remounts the input and loses focus.
+function FormField({
+  label,
+  error: fieldError,
+  children,
+}: {
+  label: string;
+  error?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="space-y-1">
+      <label className="text-sm font-medium text-[hsl(var(--foreground))]">
+        {label}
+      </label>
+      {children}
+      {fieldError && (
+        <p className="text-xs text-[hsl(var(--destructive))]">{fieldError}</p>
+      )}
+    </div>
+  );
+}
+
+
 export default function OnboardingPage() {
   const t = useTranslations();
   const router = useRouter();
@@ -378,29 +403,6 @@ export default function OnboardingPage() {
             </p>
           </div>
         </div>
-      </div>
-    );
-  }
-
-  // Form field helper
-  function FormField({
-    label,
-    error: fieldError,
-    children,
-  }: {
-    label: string;
-    error?: string;
-    children: React.ReactNode;
-  }) {
-    return (
-      <div className="space-y-1">
-        <label className="text-sm font-medium text-[hsl(var(--foreground))]">
-          {label}
-        </label>
-        {children}
-        {fieldError && (
-          <p className="text-xs text-[hsl(var(--destructive))]">{fieldError}</p>
-        )}
       </div>
     );
   }
