@@ -234,6 +234,7 @@ None yet.
 | 261110-ebw | Enable Banking step-by-step wizard in the app and public tutorial at /help/enable-banking (EN/NL/FR/DE) | 2026-11-10 | worktree-agent-a0fd4d82bc3a65f0f | [261110-ebw-enable-banking-wizard-and-tutorial](./quick/261110-ebw-enable-banking-wizard-and-tutorial/) |
 | 261114-bru | Brussels EPC indexation per be.brussels (E/F/G only, pre-14/10/2022 leases, monthly factor on the whole rent, persisted per lease, registration required) + month-based health index alert | 2026-11-14 | 7f2df3f | [261114-bru-brussels-epc-indexation-fix](./quick/261114-bru-brussels-epc-indexation-fix/) |
 | 261114-fcs | Onboarding add-tenant/property fields lost focus after every letter (FormField declared inside the page); moved to module level | 2026-11-14 | 0eae15c | - |
+| 261114-e2e | Browser suite types into every field (Chromium/WebKit, desktop/mobile), 3 bugs fixed (API token tab blank, onboarding loop, phone menu off screen), container runner for linuxbe-cluster, ops testing guide | 2026-11-14 | worktree-agent-ae37f9c091b7c6d40 | [261114-e2e-focus-tests-and-ops-testing](./quick/261114-e2e-focus-tests-and-ops-testing/) |
 | 2026-10-29 | fast | sendWhatsApp can send a picture, video or document through the bridge (bridge on muncher updated too) | ✅ |
 
 ## Session Continuity

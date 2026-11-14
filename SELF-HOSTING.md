@@ -58,7 +58,7 @@ Copy `.env.production.example` to a file outside the web root, for example
 - `DB_PASSWORD` and the other `DB_*` values.
 - `WEB_URL`, `AUTH_URL`, `ALLOWED_ORIGINS`: your public URL, for example
   `https://rent.example.org`.
-- `NEXT_PUBLIC_API_URL`: `https://rent.example.org/api/v1`. This one is baked
+- `NEXT_PUBLIC_API_URL`: `https://rent.example.org` (the origin only: the web app adds `/api/v1` itself). This one is baked
   into the web app when it is built. Change it and you have to rebuild.
 - `SMTP_*` and `EMAIL_FROM`.
 - `ADMIN_EMAIL` and `ADMIN_PASSWORD` for the first account (see below).

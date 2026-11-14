@@ -133,7 +133,7 @@ services:
         # NEXT_PUBLIC_API_URL is inlined into the browser bundle at build time;
         # a runtime env var is ignored by the compiled bundle. Bake the prod
         # value here (https://rentular.com/api/v1).
-        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:?NEXT_PUBLIC_API_URL is required at build (e.g. https://rentular.com/api/v1)}
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:?NEXT_PUBLIC_API_URL is required at build (the origin only, e.g. https://rentular.com)}
     restart: unless-stopped
     env_file:
       - ${RENTULAR_ENV_FILE:-/opt/rentular/.env}

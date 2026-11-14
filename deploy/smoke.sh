@@ -11,7 +11,7 @@
 #   2. /api/v1/health returns JSON containing "status":"healthy"
 #   3. TLS cert has valid notBefore/notAfter dates (LE via existing automation)
 #   4. Served HTML contains ZERO `localhost:4000` (Pitfall 1 — the baked
-#      NEXT_PUBLIC_API_URL must point at rentular.com/api/v1, not localhost)
+#      NEXT_PUBLIC_API_URL must be the public origin (https://www.rentular.com), not localhost)
 #   5. `docker compose -f docker-compose.prod.yml ps` shows services up/healthy
 # ===========================================================================
 set -euo pipefail
