@@ -568,6 +568,31 @@
       "enabled": "Stuur mij meldingen voor indexering",
       "enabledDescription": "Eigenaars en beheerders van een pand krijgen elk hun eigen melding.",
       "invalidNumber": "Dit lijkt geen geldig telefoonnummer. Gebruik het internationale formaat, bijvoorbeeld +32 470 12 34 56."
+    },
+    "goCardlessConnect": {
+      "title": "Domiciliëring via GoCardless",
+      "intro": "De huur wordt geïnd op je eigen GoCardless-account en uitbetaald op je eigen bankrekening. Rentular komt nooit aan het geld van je huurders.",
+      "notConnected": "Je hebt nog geen GoCardless-account gekoppeld.",
+      "connectHelp": "Log in bij GoCardless en geef Rentular toestemming om mandaten en betalingen voor jou aan te maken. Nog geen account? Dan maak je er onderweg een aan.",
+      "connectButton": "GoCardless koppelen",
+      "signupButton": "GoCardless-account aanmaken",
+      "connected": "Gekoppeld",
+      "revoked": "Ontkoppeld",
+      "error": "Vraagt aandacht",
+      "organisation": "GoCardless-organisatie",
+      "creditor": "Schuldeiser",
+      "environment": "Omgeving",
+      "connectedSince": "Gekoppeld op",
+      "lastError": "Laatste fout",
+      "disconnectButton": "Ontkoppelen",
+      "disconnectConfirm": "GoCardless ontkoppelen? Je bestaande mandaten blijven in je GoCardless-account staan, maar Rentular kan geen huur meer innen tot je opnieuw koppelt.",
+      "disconnected": "GoCardless is ontkoppeld. Je kunt Rentular ook verwijderen bij de gekoppelde apps in je GoCardless-dashboard.",
+      "connectedToast": "Je GoCardless-account is gekoppeld.",
+      "connectError": "Het koppelen van GoCardless is niet gelukt. Probeer het opnieuw.",
+      "connectCancelled": "Je bent bij GoCardless gestopt, er is niets gekoppeld.",
+      "unavailable": "Domiciliëring is nog niet beschikbaar op Rentular. Huurders kunnen gewoon blijven betalen met een overschrijving.",
+      "notLandlord": "Alleen de eigenaar van een pand kan een GoCardless-account koppelen.",
+      "instanceConfigured": "Deze installatie int met een eigen GoCardless-account (GOCARDLESS_ACCESS_TOKEN op de server)."
     }
   },
   "landing": {
@@ -1144,7 +1169,13 @@
       "failed": "Mislukt",
       "expired": "Verlopen",
       "unknown": "Onbekend"
-    }
+    },
+    "notConnectedTitle": "Koppel eerst GoCardless",
+    "notConnectedOwn": "Om huur via domiciliëring te innen, koppel je eerst je eigen GoCardless-account bij Instellingen. De huur komt dan rechtstreeks op jouw account.",
+    "notConnectedOther": "De eigenaar van dit pand heeft nog geen GoCardless-account gekoppeld. Vraag de eigenaar om dat bij Instellingen te doen.",
+    "notAvailable": "Domiciliëring is nog niet beschikbaar op Rentular. Huurders kunnen gewoon blijven betalen met een overschrijving.",
+    "notConfiguredSelf": "GoCardless is niet ingesteld op deze installatie. Zet GOCARDLESS_ACCESS_TOKEN op de server.",
+    "goToSettings": "Naar Instellingen"
   },
   "bankConnections": {
     "title": "Bankkoppelingen",

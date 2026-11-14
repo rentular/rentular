@@ -568,6 +568,31 @@
       "enabled": "M'envoyer les alertes d'indexation",
       "enabledDescription": "Chaque propriétaire et gestionnaire d'un bien reçoit sa propre alerte.",
       "invalidNumber": "Ce numéro de téléphone ne semble pas valide. Utilisez le format international, par exemple +32 470 12 34 56."
+    },
+    "goCardlessConnect": {
+      "title": "Domiciliation via GoCardless",
+      "intro": "Le loyer est encaissé sur votre propre compte GoCardless et versé sur votre propre compte bancaire. Rentular ne détient jamais l'argent de vos locataires.",
+      "notConnected": "Vous n'avez pas encore connecté de compte GoCardless.",
+      "connectHelp": "Connectez-vous chez GoCardless et autorisez Rentular à créer des mandats et des paiements pour vous. Pas encore de compte ? Vous pourrez en créer un en cours de route.",
+      "connectButton": "Connecter GoCardless",
+      "signupButton": "Créer un compte GoCardless",
+      "connected": "Connecté",
+      "revoked": "Déconnecté",
+      "error": "À vérifier",
+      "organisation": "Organisation GoCardless",
+      "creditor": "Créancier",
+      "environment": "Environnement",
+      "connectedSince": "Connecté le",
+      "lastError": "Dernière erreur",
+      "disconnectButton": "Déconnecter",
+      "disconnectConfirm": "Déconnecter GoCardless ? Vos mandats existants restent dans votre compte GoCardless, mais Rentular ne pourra plus encaisser de loyer tant que vous ne vous reconnectez pas.",
+      "disconnected": "GoCardless est déconnecté. Vous pouvez aussi retirer Rentular des applications connectées dans votre tableau de bord GoCardless.",
+      "connectedToast": "Votre compte GoCardless est connecté.",
+      "connectError": "La connexion à GoCardless n'a pas fonctionné. Veuillez réessayer.",
+      "connectCancelled": "Vous vous êtes arrêté chez GoCardless, rien n'a été connecté.",
+      "unavailable": "La domiciliation n'est pas encore disponible sur Rentular. Les locataires peuvent continuer à payer par virement.",
+      "notLandlord": "Seul le propriétaire d'un bien peut connecter un compte GoCardless.",
+      "instanceConfigured": "Cette installation encaisse avec son propre compte GoCardless (GOCARDLESS_ACCESS_TOKEN sur le serveur)."
     }
   },
   "landing": {
@@ -1144,7 +1169,13 @@
       "failed": "Echoue",
       "expired": "Expire",
       "unknown": "Inconnu"
-    }
+    },
+    "notConnectedTitle": "Connectez d'abord GoCardless",
+    "notConnectedOwn": "Pour encaisser le loyer par domiciliation, connectez d'abord votre propre compte GoCardless dans les Paramètres. Le loyer arrive alors directement sur votre compte.",
+    "notConnectedOther": "Le propriétaire de ce bien n'a pas encore connecté de compte GoCardless. Demandez-lui de le faire dans les Paramètres.",
+    "notAvailable": "La domiciliation n'est pas encore disponible sur Rentular. Les locataires peuvent continuer à payer par virement.",
+    "notConfiguredSelf": "GoCardless n'est pas configuré sur cette installation. Définissez GOCARDLESS_ACCESS_TOKEN sur le serveur.",
+    "goToSettings": "Aller aux Paramètres"
   },
   "bankConnections": {
     "title": "Connexions bancaires",

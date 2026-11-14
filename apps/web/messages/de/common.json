@@ -568,6 +568,31 @@
       "enabled": "Hinweise zur Indexierung senden",
       "enabledDescription": "Eigentümer und Verwalter einer Immobilie erhalten jeweils einen eigenen Hinweis.",
       "invalidNumber": "Das sieht nicht nach einer gültigen Telefonnummer aus. Bitte im internationalen Format eingeben, zum Beispiel +32 470 12 34 56."
+    },
+    "goCardlessConnect": {
+      "title": "Lastschrift über GoCardless",
+      "intro": "Die Miete wird auf Ihr eigenes GoCardless-Konto eingezogen und auf Ihr eigenes Bankkonto ausgezahlt. Rentular verwahrt nie das Geld Ihrer Mieter.",
+      "notConnected": "Sie haben noch kein GoCardless-Konto verbunden.",
+      "connectHelp": "Melden Sie sich bei GoCardless an und erlauben Sie Rentular, Mandate und Zahlungen für Sie anzulegen. Noch kein Konto? Sie können unterwegs eins erstellen.",
+      "connectButton": "GoCardless verbinden",
+      "signupButton": "GoCardless-Konto erstellen",
+      "connected": "Verbunden",
+      "revoked": "Getrennt",
+      "error": "Bitte prüfen",
+      "organisation": "GoCardless-Organisation",
+      "creditor": "Gläubiger",
+      "environment": "Umgebung",
+      "connectedSince": "Verbunden am",
+      "lastError": "Letzter Fehler",
+      "disconnectButton": "Trennen",
+      "disconnectConfirm": "GoCardless trennen? Ihre bestehenden Mandate bleiben in Ihrem GoCardless-Konto, aber Rentular kann keine Miete mehr einziehen, bis Sie wieder verbinden.",
+      "disconnected": "GoCardless ist getrennt. Sie können Rentular auch in Ihrem GoCardless-Dashboard bei den verbundenen Apps entfernen.",
+      "connectedToast": "Ihr GoCardless-Konto ist verbunden.",
+      "connectError": "Die Verbindung mit GoCardless hat nicht geklappt. Bitte versuchen Sie es erneut.",
+      "connectCancelled": "Sie haben bei GoCardless abgebrochen, es wurde nichts verbunden.",
+      "unavailable": "Lastschrift ist auf Rentular noch nicht verfügbar. Mieter können weiter per Überweisung zahlen.",
+      "notLandlord": "Nur der Eigentümer einer Immobilie kann ein GoCardless-Konto verbinden.",
+      "instanceConfigured": "Diese Installation zieht mit einem eigenen GoCardless-Konto ein (GOCARDLESS_ACCESS_TOKEN auf dem Server)."
     }
   },
   "landing": {
@@ -1144,7 +1169,13 @@
       "failed": "Fehlgeschlagen",
       "expired": "Abgelaufen",
       "unknown": "Unbekannt"
-    }
+    },
+    "notConnectedTitle": "Verbinden Sie zuerst GoCardless",
+    "notConnectedOwn": "Um die Miete per Lastschrift einzuziehen, verbinden Sie zuerst Ihr eigenes GoCardless-Konto in den Einstellungen. Die Miete geht dann direkt auf Ihr Konto.",
+    "notConnectedOther": "Der Eigentümer dieser Immobilie hat noch kein GoCardless-Konto verbunden. Bitten Sie ihn, das in den Einstellungen zu tun.",
+    "notAvailable": "Lastschrift ist auf Rentular noch nicht verfügbar. Mieter können weiter per Überweisung zahlen.",
+    "notConfiguredSelf": "GoCardless ist auf dieser Installation nicht eingerichtet. Setzen Sie GOCARDLESS_ACCESS_TOKEN auf dem Server.",
+    "goToSettings": "Zu den Einstellungen"
   },
   "bankConnections": {
     "title": "Bankverbindungen",
