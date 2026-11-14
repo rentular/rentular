@@ -1967,5 +1967,44 @@
   "flandersAnnounced": {
     "notice": "Announced by the Flemish government: from {year} possibly no more indexation for EPC label {labels}. This is not law yet; Rentular will only apply it once the decree is voted.",
     "or": "or"
+  },
+  "manualMark": {
+    "undo": "Undo",
+    "confirm": "Undo the paid mark for {month}? The month will be open again, exactly as before the mark. Reminders that were already sent stay in the history.",
+    "undone": "Paid mark undone. The month is open again.",
+    "already": "This paid mark was already undone.",
+    "failed": "Could not undo the paid mark.",
+    "forbidden": "Only an owner, co-owner or manager can undo a paid mark.",
+    "badge": "Marked by hand",
+    "markedBy": "Marked paid by hand by {name} on {date}",
+    "markedOn": "Marked paid by hand on {date}",
+    "cardTitle": "Marked paid by hand",
+    "cardHint": "Months that were marked paid by hand. Undo puts the month back exactly as it was.",
+    "blocked": {
+      "bank_matched": "Can no longer be undone: the payment has since been matched to a bank transaction. Unlink the transaction first, or correct the month in the ledger.",
+      "allocated": "Can no longer be undone: money was assigned to this payment in the ledger. Remove that assignment in the ledger first.",
+      "changed": "Can no longer be undone: the payment was changed after it was marked paid. Correct it by hand on the payments page.",
+      "row_missing": "Can no longer be undone: the payment record no longer exists.",
+      "not_latest": "A later mark exists for this month. Undo that one first."
+    },
+    "method": {
+      "cash": "cash",
+      "bank_transfer": "bank transfer",
+      "other": "other",
+      "gocardless": "direct debit"
+    },
+    "source": {
+      "magic_link": "via the email link",
+      "api": "via the API",
+      "mcp": "via MCP",
+      "overview": "",
+      "other": ""
+    },
+    "note": {
+      "marked": "{month} marked paid by hand ({method}) by {name}",
+      "markedNoName": "{month} marked paid by hand ({method})",
+      "undone": "Paid mark for {month} undone by {name}",
+      "undoneNoName": "Paid mark for {month} undone"
+    }
   }
 }

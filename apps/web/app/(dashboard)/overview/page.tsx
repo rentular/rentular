@@ -46,6 +46,12 @@ import {
   shortDate,
   type ReminderMuteInfo,
 } from "@/components/leases/ReminderMute";
+import {
+  ManualMarkBadge,
+  ManualMarkUndoButton,
+  undoManualMark,
+  type ManualMarkInfo,
+} from "@/components/payments/ManualMarkUndo";
 
 type ReminderLevel = "friendly" | "formal" | "final";
 
@@ -74,6 +80,8 @@ interface BucketItem {
   mute?: ReminderMuteInfo;
   /** Due date of the lease's next rent. */
   nextDueDate?: string;
+  /** Paid list: the month was marked paid by hand and can be undone. */
+  manualMark?: ManualMarkInfo;
 }
 
 interface Overview {
@@ -167,6 +175,7 @@ export default function OverviewPage() {
   const t = useTranslations("overview");
   const tc = useTranslations("dashboard");
   const tm = useTranslations("reminderMute");
+  const tu = useTranslations("manualMark");
   const { firstName } = useDashboardUser();
   const dayPart = useDayPart();
   const [data, setData] = useState<Overview | null>(null);
@@ -239,10 +248,30 @@ export default function OverviewPage() {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ leaseId, month: periodMonth, method }),
+        body: JSON.stringify({ leaseId, month: periodMonth, method, source: "overview" }),
       });
       if (res.ok) {
-        toast.success(t("markedPaid"));
+        const result = (await res.json().catch(() => ({})))?.data as
+          | { markId?: string; already?: boolean }
+          | undefined;
+        const markId = result?.markId;
+        // A fresh mark can be undone right from the toast for a few seconds.
+        toast.success(
+          t("markedPaid"),
+          markId
+            ? {
+                duration: 10000,
+                action: {
+                  label: tu("undo"),
+                  onClick: () => {
+                    void undoManualMark(tu, { leaseId, markId }).then((ok) => {
+                      if (ok) void load();
+                    });
+                  },
+                },
+              }
+            : undefined,
+        );
         await load();
       } else {
         const err = (await res.json().catch(() => ({}))).error || tc("toast.saveFailed");
@@ -798,6 +827,7 @@ function BucketBreakdown({
                       </span>
                     )}
                     {canAct && item.mute?.active && <MuteBadge mute={item.mute} />}
+                    {bucket === "paid" && item.manualMark && <ManualMarkBadge mark={item.manualMark} />}
                   </p>
                   <p className="text-xs text-muted-foreground">
                     {item.tenantName} &middot; {t("dueLabel")} {formatDate(item.dueDate)}
@@ -857,6 +887,13 @@ function BucketBreakdown({
                   )}
                   {canMute && (
                     <MuteButton muted={!!item.mute?.active} onClick={() => setMuteFor(item)} />
+                  )}
+                  {bucket === "paid" && item.manualMark && (
+                    <ManualMarkUndoButton
+                      mark={item.manualMark}
+                      label={`${item.propertyName} · ${item.tenantName}`}
+                      onUndone={onReload}
+                    />
                   )}
                   <Link
                     href={`/ledger/${item.leaseId}`}

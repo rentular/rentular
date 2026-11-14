@@ -1,4 +1,4 @@
-import { Hono } from "hono";
+import { Hono, type Context } from "hono";
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
 import { eq, and, desc, lt, gte, lte, inArray, like, sql } from "drizzle-orm";
@@ -36,10 +36,31 @@ import {
   hasMinimumRole,
 } from "../lib/propertyAccess";
 import { todayInZone } from "../lib/timezone";
+import {
+  markMonthPaid,
+  markPaymentPaid,
+  undoMonthPaid,
+  type ManualMarkView,
+  type MarkSource,
+} from "../services/manualMarks";
+import { drizzleMarkStore, loadLeaseForMark, loadMarkViews } from "../services/manualMarksStore";
 
 const db = getDb();
 
 export const paymentsRouter = new Hono();
+
+// Manual paid marks for the lists. Never fails the page: without marks the
+// undo buttons are simply not shown.
+async function markViewsOrEmpty(
+  filter: Parameters<typeof loadMarkViews>[1],
+): Promise<ManualMarkView[]> {
+  try {
+    return await loadMarkViews(db, filter);
+  } catch (err) {
+    console.error("[Payments] loading manual marks failed:", err);
+    return [];
+  }
+}
 
 // Helper: resolve date range from period or custom from/to (D-16)
 function resolveDateRange(
@@ -264,8 +285,10 @@ paymentsRouter.get(
       .limit(perPage)
       .offset((page - 1) * perPage);
 
+    const marks = await markViewsOrEmpty({ paymentIds: result.map((r) => r.payments.id) });
+    const markByPayment = new Map(marks.map((m) => [m.paymentId, m]));
     return c.json({
-      data: result.map((r) => r.payments),
+      data: result.map((r) => ({ ...r.payments, manualMark: markByPayment.get(r.payments.id) ?? null })),
       meta: { total: result.length, page, perPage },
     });
   }
@@ -570,6 +593,8 @@ paymentsRouter.get("/dashboard", async (c) => {
     mute?: MuteView;
     /** Due date of the lease's next rent, for the "next rent" choice. */
     nextDueDate?: string;
+    /** The month was marked paid by hand: the mark, and whether it can be undone. */
+    manualMark?: ManualMarkView;
   };
   const recentPaymentsFor = (leaseId: string) =>
     (byLease.get(leaseId) ?? [])
@@ -630,6 +655,19 @@ paymentsRouter.get("/dashboard", async (c) => {
       if (!owesNothing(l.id)) overdueItems.push(item);
     } else {
       toComeItems.push(item);
+    }
+  }
+  // A month marked paid by hand can be undone from the paid list.
+  if (paidItems.length > 0) {
+    const marks = await markViewsOrEmpty({ leaseIds: [...new Set(paidItems.map((i) => i.leaseId))], month });
+    const markByLease = new Map<string, ManualMarkView>();
+    for (const m of marks) {
+      const cur = markByLease.get(m.leaseId);
+      if (!cur || m.markedAt > cur.markedAt) markByLease.set(m.leaseId, m);
+    }
+    for (const item of paidItems) {
+      const m = markByLease.get(item.leaseId);
+      if (m) item.manualMark = m;
     }
   }
   const paidThisMonth = totals.paid;
@@ -758,6 +796,29 @@ paymentsRouter.get("/dashboard", async (c) => {
   });
 });
 
+// Active manual paid marks of a lease (optionally one month), with whether
+// each can be undone and why not. Registered before /:id.
+paymentsRouter.get(
+  "/manual-marks",
+  zValidator(
+    "query",
+    z.object({
+      leaseId: z.string().min(1),
+      month: z.string().regex(/^\d{4}-\d{2}$/).optional(),
+    })
+  ),
+  async (c) => {
+    const userId = getRequiredUserId(c);
+    const { leaseId, month } = c.req.valid("query");
+    const lease = await loadLeaseForMark(db, leaseId);
+    if (!lease) return c.json({ error: "Lease not found" }, 404);
+    const role = await getUserPropertyRole(userId, lease.propertyId);
+    if (!role) return c.json({ error: "Lease not found" }, 404);
+    const marks = await loadMarkViews(db, { leaseIds: [leaseId], month });
+    return c.json({ data: marks });
+  }
+);
+
 // Get payment details (PAY-02)
 paymentsRouter.get("/:id", async (c) => {
   const id = c.req.param("id");
@@ -838,8 +899,17 @@ paymentsRouter.post(
   }
 );
 
+// Where a manual mark came from: a Bearer token is the API (MCP when the MCP
+// server's tool header is present); a cookie session is the web app, which
+// says whether it was the overview or another page.
+function markSource(c: Context, web?: "overview" | "other"): MarkSource {
+  if (c.get("tokenId")) return c.req.header("X-Rentular-Tool") ? "mcp" : "api";
+  return web ?? "overview";
+}
+
 // Mark an existing pending/processing payment as paid (cash, transfer to another
-// account, etc.) -- e.g. a deposit or rent paid outside the app.
+// account, etc.) -- e.g. a deposit or rent paid outside the app. Recorded as a
+// manual mark, so it can be undone.
 paymentsRouter.post(
   "/:id/mark-paid",
   zValidator(
@@ -879,25 +949,26 @@ paymentsRouter.post(
 
     const data = c.req.valid("json");
     const paidDate = data.date || todayInZone();
-    await transitionPayment(payment.id, "paid", { paidDate });
-    await db
-      .update(payments)
-      .set({
-        method: data.method,
-        ...(data.notes ? { notes: keepDepositMarker(payment.notes, data.notes) } : {}),
-        updatedAt: new Date(),
-      })
-      .where(eq(payments.id, payment.id));
+    const marked = await markPaymentPaid(drizzleMarkStore(db), {
+      lease: result[0].leases,
+      paymentId: payment.id,
+      paidDate,
+      method: data.method,
+      ...(data.notes ? { notes: keepDepositMarker(payment.notes, data.notes) } : {}),
+      actor: userId,
+      source: markSource(c, "other"),
+    });
 
     return c.json({
-      data: { id: payment.id, status: "paid", method: data.method, paidDate },
+      data: { id: payment.id, status: "paid", method: data.method, paidDate, markId: marked?.markId ?? null },
     });
   }
 );
 
 // Mark a lease's rent for a given month as paid, finding or creating the record.
 // Lets the overview mark rent received (cash / other account) in one tap, even
-// before a payment record has been materialised.
+// before a payment record has been materialised. Every mark is recorded so it
+// can be undone with /unmark-month-paid.
 paymentsRouter.post(
   "/mark-month-paid",
   zValidator(
@@ -907,106 +978,67 @@ paymentsRouter.post(
       month: z.string().regex(/^\d{4}-\d{2}$/),
       method: z.enum(["cash", "bank_transfer", "other"]).optional().default("cash"),
       date: z.string().date().optional(),
+      source: z.enum(["overview", "other"]).optional(),
     })
   ),
   async (c) => {
     const userId = getRequiredUserId(c);
-    const { leaseId, month, method, date } = c.req.valid("json");
+    const { leaseId, month, method, date, source } = c.req.valid("json");
 
-    const leaseRows = await db.select().from(leases).where(eq(leases.id, leaseId)).limit(1);
-    if (!leaseRows[0]) return c.json({ error: "Lease not found" }, 404);
-    const lease = leaseRows[0];
+    const lease = await loadLeaseForMark(db, leaseId);
+    if (!lease) return c.json({ error: "Lease not found" }, 404);
 
     const role = await getUserPropertyRole(userId, lease.propertyId);
     if (!role || !hasMinimumRole(role, "manager")) {
       return c.json({ error: "Insufficient permissions" }, 403);
     }
 
-    const status = await loadMonthStatus(db, lease, month);
-    const existing = await db
-      .select()
-      .from(payments)
-      .where(and(eq(payments.leaseId, leaseId), like(payments.dueDate, `${month}-%`)));
-    const alreadyPaid = existing.find((p) => p.status === "paid" && !p.isIgnored);
-    const paidRowId = status.paidRowId ?? alreadyPaid?.id ?? null;
-    if (status.settled && paidRowId) {
-      return c.json({ data: { id: paidRowId, status: "paid", already: true } });
-    }
-    let target = existing.find(
-      (p) => !p.isIgnored && (p.status === "pending" || p.status === "processing"),
-    );
+    const result = await markMonthPaid(drizzleMarkStore(db), {
+      lease,
+      month,
+      method,
+      date,
+      today: todayInZone(),
+      actor: userId,
+      source: markSource(c, source),
+    });
+    return c.json({ data: result });
+  }
+);
 
-    const paidDate = date || todayInZone();
+// Undo a manual paid mark: the latest one for the lease and month, or the
+// given markId. The payment row goes back exactly to how it was before the
+// mark (or is removed when the mark created it). Refused with 409 when the
+// row was matched to a bank transaction, got ledger allocations, or changed
+// since. Undoing a mark that is already undone returns already: true.
+paymentsRouter.post(
+  "/unmark-month-paid",
+  zValidator(
+    "json",
+    z
+      .object({
+        leaseId: z.string().min(1),
+        month: z.string().regex(/^\d{4}-\d{2}$/).optional(),
+        markId: z.string().min(1).optional(),
+      })
+      .refine((v) => !!v.month || !!v.markId, { message: "month or markId is required" })
+  ),
+  async (c) => {
+    const userId = getRequiredUserId(c);
+    const { leaseId, month, markId } = c.req.valid("json");
 
-    // Part of the month's rent already came in: record only the remaining amount.
-    // An open record for the month is reused for it, so no pending row is left
-    // behind to be chased later.
-    if (status.received > 0.01 && status.shortfall > 0) {
-      const remainder = String(status.shortfall);
-      const remainderNote = "remaining amount after partial payment";
-      if (target) {
-        await transitionPayment(target.id, "paid", { paidDate });
-        await db
-          .update(payments)
-          .set({
-            amount: remainder,
-            rentAmount: remainder,
-            chargesAmount: "0",
-            method,
-            notes: target.notes ? `${target.notes}\n${remainderNote}` : remainderNote,
-            updatedAt: new Date(),
-          })
-          .where(eq(payments.id, target.id));
-        return c.json({ data: { id: target.id, status: "paid", remainder: status.shortfall } });
-      }
-      const id = crypto.randomUUID();
-      await db.insert(payments).values({
-        id,
-        leaseId,
-        status: "paid",
-        amount: remainder,
-        rentAmount: remainder,
-        chargesAmount: "0",
-        dueDate: status.dueDate,
-        paidDate,
-        method,
-        notes: remainderNote,
-      });
-      return c.json({ data: { id, status: "paid", remainder: status.shortfall } });
+    const lease = await loadLeaseForMark(db, leaseId);
+    if (!lease) return c.json({ error: "Lease not found" }, 404);
+    const role = await getUserPropertyRole(userId, lease.propertyId);
+    if (!role) return c.json({ error: "Lease not found" }, 404);
+    if (!hasMinimumRole(role, "manager")) {
+      return c.json({ error: "Insufficient permissions" }, 403);
     }
 
-    if (!target) {
-      const pad = (n: number) => String(n).padStart(2, "0");
-      const y = Number(month.slice(0, 4));
-      const mo = Number(month.slice(5, 7));
-      const lastDay = new Date(y, mo, 0).getDate();
-      const day = Math.min(Math.max(1, Math.floor(lease.paymentDay ?? 1) || 1), lastDay);
-      const due = `${month}-${pad(day)}`;
-      const rent = Number(lease.monthlyRent || 0);
-      const charges = Number(lease.monthlyCharges || 0);
-      const id = crypto.randomUUID();
-      await db.insert(payments).values({
-        id,
-        leaseId,
-        status: "pending",
-        amount: String(rent + charges),
-        dueDate: due,
-        method,
-        rentAmount: String(rent),
-        chargesAmount: String(charges),
-        notes: "auto-generated expected payment",
-      });
-      const created = await db.select().from(payments).where(eq(payments.id, id)).limit(1);
-      target = created[0]!;
-    }
-
-    await transitionPayment(target.id, "paid", { paidDate });
-    await db
-      .update(payments)
-      .set({ method, updatedAt: new Date() })
-      .where(eq(payments.id, target.id));
-
-    return c.json({ data: { id: target.id, status: "paid", method, paidDate } });
+    const result = await undoMonthPaid(drizzleMarkStore(db), { lease, month, markId, actor: userId });
+    if (!result.ok) return c.json({ error: result.error, code: result.code }, result.status);
+    const { ok: _ok, ...data } = result;
+    return c.json({ data });
   }
 );
 

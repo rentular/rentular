@@ -30,7 +30,7 @@ interface LateEmailInput {
 
 // A link target: a signed one-click action, or "record" (the web app's
 // payments page, behind normal login, so no token).
-type LinkTarget = LandlordAction | "record";
+type LinkTarget = Exclude<LandlordAction, "unpaid"> | "record";
 
 interface EmailOption {
   label: string;

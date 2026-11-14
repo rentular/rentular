@@ -74,9 +74,12 @@ Every write tool needs a write-scoped token plus manager or higher on the proper
 | Tool | Inputs | API endpoint |
 | --- | --- | --- |
 | `mark_rent_paid` | `leaseId`, `month` (YYYY-MM), `method?`, `date?` | `POST /payments/mark-month-paid` |
+| `unmark_rent_paid` | `leaseId`, `month` (YYYY-MM) | `POST /payments/unmark-month-paid` |
 | `send_reminder` | `leaseId`, `month`, `level` (friendly, formal, final) | `POST /payments/send-reminder` |
 | `record_ledger_payment` | `leaseId`, `periodMonth`, `amount`, `method?`, `date?` | `POST /ledger/:leaseId/record-payment` |
 | `apply_indexation` | `leaseId`, `newRent`, `subject`, `body`, `sendNotification?` | `POST /indexation/apply/:leaseId` |
+
+`unmark_rent_paid` undoes the latest manual paid mark for that month (from `mark_rent_paid`, the overview or the landlord email link). The payment goes back exactly to how it was; a record the mark created is removed. The API refuses with 409 and a reason when the payment has since been matched to a bank transaction, got ledger allocations or was changed. Undoing twice is harmless (`already: true`).
 
 `send_reminder` delivers over the tenant's preferred channel (email, SMS or WhatsApp, as set on the tenant record). It falls back to email when that channel is not configured or the tenant has no phone number. The response reports the channel actually used and the address or number it went to.
 

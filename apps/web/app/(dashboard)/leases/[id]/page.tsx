@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { toast } from "sonner";
 import {
   ArrowLeft,
@@ -26,6 +26,7 @@ import { formatDate, formatDateTime } from "@/lib/dateLocale";
 import { eur } from "@/components/overview/format";
 import { ContractBalanceCard } from "@/components/leases/ContractBalanceCard";
 import { ReminderMuteCard, type ReminderMuteInfo } from "@/components/leases/ReminderMute";
+import { ManualMarksCard, monthName } from "@/components/payments/ManualMarkUndo";
 
 const PAGE_SIZE = 100;
 
@@ -37,6 +38,14 @@ interface PastItem {
     until: string | null;
     previousUntil: string | null;
     note: string | null;
+  } | null;
+  paidMark?: {
+    action: "marked" | "undone";
+    month: string | null;
+    method: string | null;
+    amount: number | null;
+    source: string | null;
+    markId: string | null;
   } | null;
   channel: string;
   type: string;
@@ -104,6 +113,8 @@ const STATUS_CLASS: Record<string, string> = {
 
 export default function LeaseCommunicationPage() {
   const t = useTranslations("contractComms");
+  const tu = useTranslations("manualMark");
+  const locale = useLocale();
   const params = useParams<{ id: string }>();
   const router = useRouter();
   const leaseId = params.id;
@@ -143,6 +154,9 @@ export default function LeaseCommunicationPage() {
       cancelled = true;
     };
   }, [fetchPage, t]);
+
+  // Bumped after a paid mark is undone, so the balance card loads again.
+  const [balanceKey, setBalanceKey] = useState(0);
 
   // Reload the first page after a change (reminders muted or unmuted).
   const reload = async () => {
@@ -202,13 +216,28 @@ export default function LeaseCommunicationPage() {
       return next;
     });
 
+  const paidMarkTitle = (pm: NonNullable<PastItem["paidMark"]>, name: string | null): string => {
+    const month = pm.month ? monthName(pm.month, locale) : "";
+    const known = ["cash", "bank_transfer", "other", "gocardless"];
+    const method = pm.method && known.includes(pm.method) ? tu(`method.${pm.method}`) : pm.method ?? "";
+    const via =
+      pm.source === "magic_link" || pm.source === "api" || pm.source === "mcp" ? ` (${tu(`source.${pm.source}`)})` : "";
+    if (pm.action === "undone") {
+      return name ? tu("note.undone", { month, name }) : tu("note.undoneNoName", { month });
+    }
+    return (name ? tu("note.marked", { month, method, name }) : tu("note.markedNoName", { month, method })) + via;
+  };
+
   const renderInternal = (item: PastItem) => {
     const m = item.mute;
+    const pm = item.paidMark;
     const title = m
       ? m.action === "removed"
         ? t("muteNote.removed", { date: formatDate(m.previousUntil ?? "") })
         : t(m.action === "changed" ? "muteNote.changed" : "muteNote.set", { date: formatDate(m.until ?? "") })
-      : item.body;
+      : pm
+        ? paidMarkTitle(pm, item.triggeredByName ?? item.recipientName ?? null)
+        : item.body;
     return (
       <li key={item.id} className="rounded-lg border border-dashed border-sky-300 bg-sky-50/60 p-3 dark:bg-sky-900/20">
         <div className="flex items-start gap-2">
@@ -362,7 +391,15 @@ export default function LeaseCommunicationPage() {
         />
       )}
 
-      <ContractBalanceCard leaseId={leaseId} />
+      <ManualMarksCard
+        leaseId={leaseId}
+        onChanged={() => {
+          void reload();
+          setBalanceKey((k) => k + 1);
+        }}
+      />
+
+      <ContractBalanceCard key={balanceKey} leaseId={leaseId} />
 
       {loading ? (
         <div className="space-y-2">

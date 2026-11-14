@@ -1967,5 +1967,44 @@
   "flandersAnnounced": {
     "notice": "Annoncé par le gouvernement flamand : à partir de {year}, peut-être plus d'indexation pour le label PEB {labels}. Ce n'est pas encore une loi ; Rentular ne l'appliquera qu'une fois le décret voté.",
     "or": "ou"
+  },
+  "manualMark": {
+    "undo": "Annuler",
+    "confirm": "Annuler le marquage comme payé de {month} ? Le mois sera de nouveau ouvert, exactement comme avant le marquage. Les rappels déjà envoyés restent dans l'historique.",
+    "undone": "Marquage comme payé annulé. Le mois est de nouveau ouvert.",
+    "already": "Ce marquage comme payé avait déjà été annulé.",
+    "failed": "Impossible d'annuler le marquage comme payé.",
+    "forbidden": "Seul un propriétaire, copropriétaire ou gestionnaire peut annuler un marquage comme payé.",
+    "badge": "Marqué manuellement",
+    "markedBy": "Marqué comme payé manuellement par {name} le {date}",
+    "markedOn": "Marqué comme payé manuellement le {date}",
+    "cardTitle": "Marqué comme payé manuellement",
+    "cardHint": "Les mois marqués comme payés à la main. Annuler remet le mois exactement dans l'état où il était.",
+    "blocked": {
+      "bank_matched": "Ne peut plus être annulé : le paiement a depuis été rapproché d'une transaction bancaire. Dissociez d'abord la transaction, ou corrigez le mois dans le grand livre.",
+      "allocated": "Ne peut plus être annulé : de l'argent a été affecté à ce paiement dans le grand livre. Supprimez d'abord cette affectation dans le grand livre.",
+      "changed": "Ne peut plus être annulé : le paiement a été modifié après avoir été marqué comme payé. Corrigez-le à la main sur la page des paiements.",
+      "row_missing": "Ne peut plus être annulé : le paiement n'existe plus.",
+      "not_latest": "Un marquage plus récent existe pour ce mois. Annulez d'abord celui-là."
+    },
+    "method": {
+      "cash": "espèces",
+      "bank_transfer": "virement",
+      "other": "autre",
+      "gocardless": "domiciliation"
+    },
+    "source": {
+      "magic_link": "via le lien de l'e-mail",
+      "api": "via l'API",
+      "mcp": "via MCP",
+      "overview": "",
+      "other": ""
+    },
+    "note": {
+      "marked": "{month} marqué comme payé manuellement ({method}) par {name}",
+      "markedNoName": "{month} marqué comme payé manuellement ({method})",
+      "undone": "Marquage comme payé de {month} annulé par {name}",
+      "undoneNoName": "Marquage comme payé de {month} annulé"
+    }
   }
 }

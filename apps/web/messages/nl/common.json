@@ -1967,5 +1967,44 @@
   "flandersAnnounced": {
     "notice": "Aangekondigd door de Vlaamse regering: vanaf {year} mogelijk geen indexatie meer voor EPC-label {labels}. Dit is nog geen wet; Rentular past het pas toe als het decreet gestemd is.",
     "or": "of"
+  },
+  "manualMark": {
+    "undo": "Ongedaan maken",
+    "confirm": "Markering als betaald voor {month} ongedaan maken? De maand staat dan weer open, precies zoals voor de markering. Herinneringen die al verstuurd zijn, blijven in de historiek.",
+    "undone": "Markering als betaald ongedaan gemaakt. De maand staat weer open.",
+    "already": "Deze markering als betaald was al ongedaan gemaakt.",
+    "failed": "De markering als betaald kon niet ongedaan gemaakt worden.",
+    "forbidden": "Alleen een eigenaar, mede-eigenaar of beheerder kan een markering als betaald ongedaan maken.",
+    "badge": "Handmatig gemarkeerd",
+    "markedBy": "Handmatig als betaald gemarkeerd door {name} op {date}",
+    "markedOn": "Handmatig als betaald gemarkeerd op {date}",
+    "cardTitle": "Handmatig als betaald gemarkeerd",
+    "cardHint": "Maanden die met de hand als betaald gemarkeerd zijn. Ongedaan maken zet de maand precies terug zoals ze was.",
+    "blocked": {
+      "bank_matched": "Kan niet meer ongedaan gemaakt worden: de betaling is intussen gekoppeld aan een banktransactie. Ontkoppel eerst de transactie, of corrigeer de maand in het grootboek.",
+      "allocated": "Kan niet meer ongedaan gemaakt worden: er is in het grootboek geld aan deze betaling toegewezen. Verwijder eerst die toewijzing in het grootboek.",
+      "changed": "Kan niet meer ongedaan gemaakt worden: de betaling is gewijzigd nadat ze als betaald werd gemarkeerd. Corrigeer ze met de hand op de betalingenpagina.",
+      "row_missing": "Kan niet meer ongedaan gemaakt worden: de betaling bestaat niet meer.",
+      "not_latest": "Er is een latere markering voor deze maand. Maak die eerst ongedaan."
+    },
+    "method": {
+      "cash": "contant",
+      "bank_transfer": "overschrijving",
+      "other": "andere",
+      "gocardless": "domiciliëring"
+    },
+    "source": {
+      "magic_link": "via de e-maillink",
+      "api": "via de API",
+      "mcp": "via MCP",
+      "overview": "",
+      "other": ""
+    },
+    "note": {
+      "marked": "{month} handmatig als betaald gemarkeerd ({method}) door {name}",
+      "markedNoName": "{month} handmatig als betaald gemarkeerd ({method})",
+      "undone": "Markering als betaald voor {month} ongedaan gemaakt door {name}",
+      "undoneNoName": "Markering als betaald voor {month} ongedaan gemaakt"
+    }
   }
 }
