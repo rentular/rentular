@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
 import { getBaseUrl, getSupportEmail } from "@/lib/site";
 
-const GITHUB_SELF_HOSTING = "https://github.com/jnuyens/rentular/blob/main/SELF-HOSTING.md";
+const GITHUB_SELF_HOSTING = "https://github.com/rentular/rentular/blob/main/SELF-HOSTING.md";
 const PATH = "/help/enable-banking";
 const STEPS = [1, 2, 3, 4, 5, 6, 7] as const;
 const TROUBLE = ["jwt", "noAccounts", "bankMissing", "expired", "reconfirm", "lostPem"] as const;

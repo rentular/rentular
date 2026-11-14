@@ -63,7 +63,7 @@ version that understands `docker compose` is fine. With Podman, install
 Then as the `e2e` user:
 
 ```bash
-git clone https://github.com/jnuyens/rentular.git ~/rentular
+git clone https://github.com/rentular/rentular.git ~/rentular
 mkdir -p ~/reports
 ```
 

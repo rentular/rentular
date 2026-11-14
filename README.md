@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/jnuyens/rentular/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-AGPL--3.0-blue.svg" alt="License" /></a>
+  <a href="https://github.com/rentular/rentular/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-AGPL--3.0-blue.svg" alt="License" /></a>
 </p>
 
 ## Features
@@ -87,7 +87,7 @@ corepack enable
 
 ```bash
 # Clone the repository
-git clone https://github.com/jnuyens/rentular.git
+git clone https://github.com/rentular/rentular.git
 cd rentular
 
 # Install dependencies

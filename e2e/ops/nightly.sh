@@ -9,7 +9,7 @@
 #    monitoring system can watch the systemd unit as well.
 #
 # Settings come from /etc/rentular-e2e.env (see docs/TESTING-OPERATIONS.md):
-#   E2E_REPO_DIR       checkout of https://github.com/jnuyens/rentular
+#   E2E_REPO_DIR       checkout of https://github.com/rentular/rentular
 #   E2E_REPORT_ROOT    where dated report folders go
 #   E2E_ALERT_EMAIL    who gets the failure mail (empty: no mail)
 #   E2E_SKIP_FILE      if this file exists, skip tonight (default /run/rentular-e2e.skip)

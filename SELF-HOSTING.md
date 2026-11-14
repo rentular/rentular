@@ -98,7 +98,7 @@ Things to know before you start:
 Start it:
 
 ```bash
-git clone https://github.com/jnuyens/rentular.git /opt/rentular/repo
+git clone https://github.com/rentular/rentular.git /opt/rentular/repo
 cd /opt/rentular/repo
 cp .env.production.example /opt/rentular/.env
 chmod 600 /opt/rentular/.env
@@ -125,7 +125,7 @@ built with `next build`, the API run from source with `tsx`, both kept alive by
 PM2, with the host's MariaDB and Redis.
 
 ```bash
-git clone https://github.com/jnuyens/rentular.git /var/www/rentular
+git clone https://github.com/rentular/rentular.git /var/www/rentular
 cd /var/www/rentular
 corepack enable
 pnpm install --frozen-lockfile

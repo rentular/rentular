@@ -26,7 +26,7 @@ import { Button } from "@/components/ui/button";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
 import HeroShowcase from "@/components/marketing/HeroShowcase";
 
-const GITHUB_URL = "https://github.com/jnuyens/rentular";
+const GITHUB_URL = "https://github.com/rentular/rentular";
 
 // Feature cards: message key number, icon and pastel tile colours.
 const FEATURES = [

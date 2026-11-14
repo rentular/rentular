@@ -102,7 +102,7 @@ supportRouter.post(
       lowerMessage.includes("crash")
     ) {
       reply =
-        "Thank you for reporting this issue. Our team has been notified and will investigate. For urgent issues, you can also open a GitHub issue at github.com/jnuyens/rentular/issues.";
+        "Thank you for reporting this issue. Our team has been notified and will investigate. For urgent issues, you can also open a GitHub issue at github.com/rentular/rentular/issues.";
     } else if (
       lowerMessage.includes("feature") ||
       lowerMessage.includes("functie") ||
@@ -112,7 +112,7 @@ supportRouter.post(
       lowerMessage.includes("suggest")
     ) {
       reply =
-        "Thank you for the suggestion! We love hearing from our users. You can also submit feature requests on GitHub at github.com/jnuyens/rentular/issues - the community can vote on ideas there.";
+        "Thank you for the suggestion! We love hearing from our users. You can also submit feature requests on GitHub at github.com/rentular/rentular/issues - the community can vote on ideas there.";
     } else if (
       lowerMessage.includes("gocardless") ||
       lowerMessage.includes("sepa") ||
