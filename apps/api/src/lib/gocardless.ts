@@ -1,8 +1,48 @@
+import { createHash } from "crypto";
 import { GOCARDLESS_SCHEME } from "@rentular/shared";
-const GoCardless = require("gocardless-nodejs");
-const { Environments } = require("gocardless-nodejs/constants");
+import { resolveInstance } from "./bankProviderOptions";
+import { loadActiveCredentials } from "./gocardlessConnections";
+import { isPartnerConfigured, type GoCardlessEnvironment } from "./gocardlessPartner";
 
-type GoCardlessClient = {
+/**
+ * GoCardless access, always on behalf of one landlord.
+ *
+ * Which token is used depends on the install:
+ *   - self-hosted (one landlord, one creditor): the instance token from
+ *     GOCARDLESS_ACCESS_TOKEN, as before.
+ *   - hosted (many landlords): the landlord's own token from their GoCardless
+ *     connection (partner OAuth). The instance token is never read there, so
+ *     one landlord's tenants can never pay into another creditor. A landlord
+ *     without a connection gets GOCARDLESS_NOT_CONNECTED.
+ *
+ * Every operation takes a GoCardlessScope naming the landlord: the owner of
+ * the property the lease belongs to.
+ */
+
+export interface GoCardlessScope {
+  ownerId: string;
+}
+
+export type GoCardlessUnavailableCode =
+  | "GOCARDLESS_NOT_CONNECTED"
+  | "GOCARDLESS_NOT_CONFIGURED"
+  | "GOCARDLESS_PARTNER_NOT_CONFIGURED";
+
+export class GoCardlessUnavailableError extends Error {
+  constructor(
+    readonly code: GoCardlessUnavailableCode,
+    message: string,
+  ) {
+    super(message);
+    this.name = "GoCardlessUnavailableError";
+  }
+}
+
+export function isGoCardlessUnavailable(err: unknown): err is GoCardlessUnavailableError {
+  return err instanceof GoCardlessUnavailableError;
+}
+
+export type GoCardlessClient = {
   customers: {
     create: (params: Record<string, unknown>) => Promise<{ id?: string }>;
   };
@@ -35,36 +75,128 @@ type GoCardlessClient = {
     list: (params: Record<string, unknown>) => Promise<{
       creditors: Array<{
         id?: string;
+        name?: string;
         scheme_identifiers?: Array<{ scheme: string }>;
       }>;
     }>;
   };
 };
 
-// GoCardless client singleton
-let client: GoCardlessClient | null = null;
+export type GoCardlessClientFactory = (
+  accessToken: string,
+  environment: GoCardlessEnvironment,
+) => GoCardlessClient;
 
-export function getGoCardlessClient(): GoCardlessClient {
-  if (client) return client;
+function sdkClientFactory(accessToken: string, environment: GoCardlessEnvironment): GoCardlessClient {
+  const GoCardless = require("gocardless-nodejs");
+  const { Environments } = require("gocardless-nodejs/constants");
+  return new GoCardless(
+    accessToken,
+    environment === "live" ? Environments.Live : Environments.Sandbox,
+  ) as GoCardlessClient;
+}
 
-  const accessToken = process.env.GOCARDLESS_ACCESS_TOKEN;
-  if (!accessToken) {
-    throw new Error(
-      "GOCARDLESS_ACCESS_TOKEN is not set. Configure it in your environment."
-    );
-  }
+let clientFactory: GoCardlessClientFactory = sdkClientFactory;
+const clientCache = new Map<string, GoCardlessClient>();
 
-  const environment =
-    process.env.GOCARDLESS_ENVIRONMENT === "live"
-      ? Environments.Live
-      : Environments.Sandbox;
+/** Replace how clients are built (tests). Clears the cache. */
+export function setGoCardlessClientFactory(factory: GoCardlessClientFactory | null): void {
+  clientFactory = factory ?? sdkClientFactory;
+  clientCache.clear();
+}
 
-  client = new GoCardless(accessToken, environment) as GoCardlessClient;
+/** Build (or reuse) a client for one token. Also used right after the OAuth exchange. */
+export function clientForToken(accessToken: string, environment: GoCardlessEnvironment): GoCardlessClient {
+  const key = `${environment}:${createHash("sha256").update(accessToken).digest("hex")}`;
+  const cached = clientCache.get(key);
+  if (cached) return cached;
+  const client = clientFactory(accessToken, environment);
+  clientCache.set(key, client);
   return client;
 }
 
-export function isGoCardlessConfigured(): boolean {
+export function isHostedInstance(): boolean {
+  return resolveInstance() === "hosted";
+}
+
+/** Self-hosted only: is the instance token set? Never meaningful on hosted. */
+export function isInstanceTokenConfigured(): boolean {
+  if (isHostedInstance()) return false;
   return !!process.env.GOCARDLESS_ACCESS_TOKEN;
+}
+
+export function instanceEnvironment(): GoCardlessEnvironment {
+  return process.env.GOCARDLESS_ENVIRONMENT === "live" ? "live" : "sandbox";
+}
+
+export interface ResolvedClient {
+  client: GoCardlessClient;
+  source: "account" | "instance";
+  environment: GoCardlessEnvironment;
+  /** Hosted: the creditor stored on the landlord's connection. */
+  creditorId: string | null;
+}
+
+/**
+ * The GoCardless client for one landlord. Hosted: their own connection, or
+ * GOCARDLESS_NOT_CONNECTED. Self-hosted: the instance token.
+ */
+export async function getGoCardlessClientFor(scope: GoCardlessScope): Promise<ResolvedClient> {
+  if (isHostedInstance()) {
+    if (!isPartnerConfigured()) {
+      throw new GoCardlessUnavailableError(
+        "GOCARDLESS_PARTNER_NOT_CONFIGURED",
+        "Direct debit is not available on this installation yet.",
+      );
+    }
+    const creds = await loadActiveCredentials(scope.ownerId);
+    if (!creds) {
+      throw new GoCardlessUnavailableError(
+        "GOCARDLESS_NOT_CONNECTED",
+        "Connect your own GoCardless account in Settings first.",
+      );
+    }
+    return {
+      client: clientForToken(creds.accessToken, creds.environment),
+      source: "account",
+      environment: creds.environment,
+      creditorId: creds.creditorId,
+    };
+  }
+
+  const accessToken = process.env.GOCARDLESS_ACCESS_TOKEN;
+  if (!accessToken) {
+    throw new GoCardlessUnavailableError(
+      "GOCARDLESS_NOT_CONFIGURED",
+      "GoCardless is not configured. Set GOCARDLESS_ACCESS_TOKEN.",
+    );
+  }
+  const environment = instanceEnvironment();
+  return {
+    client: clientForToken(accessToken, environment),
+    source: "instance",
+    environment,
+    creditorId: null,
+  };
+}
+
+export interface GoCardlessAvailability {
+  available: boolean;
+  code: GoCardlessUnavailableCode | null;
+  mode: "partner" | "instance";
+}
+
+/** Can GoCardless be used for this landlord right now? Never throws. */
+export async function getGoCardlessAvailability(scope: GoCardlessScope): Promise<GoCardlessAvailability> {
+  const mode = isHostedInstance() ? "partner" : "instance";
+  try {
+    await getGoCardlessClientFor(scope);
+    return { available: true, code: null, mode };
+  } catch (err) {
+    if (isGoCardlessUnavailable(err)) return { available: false, code: err.code, mode };
+    console.error("[GoCardless] availability check failed:", (err as Error).message);
+    return { available: false, code: "GOCARDLESS_NOT_CONNECTED", mode };
+  }
 }
 
 // Verify webhook signature from GoCardless
@@ -111,37 +243,80 @@ export interface GoCardlessWebhookPayload {
   events: GoCardlessEvent[];
 }
 
-// Get creditor information from GoCardless
-export async function getCreditorInfo(): Promise<{
-  creditorId: string;
-  scheme: string;
-} | null> {
-  try {
-    const gc = getGoCardlessClient();
-    const result = await gc.creditors.list({});
-    const creditor = result.creditors?.[0];
-    if (!creditor) return null;
-    return {
-      creditorId: creditor.id || "",
-      scheme: creditor.scheme_identifiers?.[0]?.scheme || "sepa_core",
-    };
-  } catch {
-    return null;
+type CreditorRecord = {
+  id?: string;
+  name?: string;
+  scheme_identifiers?: Array<{ scheme: string }>;
+};
+
+/**
+ * Pick the creditor to collect into. A preferred id (the connection's stored
+ * creditor, or GOCARDLESS_CREDITOR_ID on a self-hosted install) wins when it
+ * is in the list; otherwise the first one.
+ */
+export function selectCreditor(
+  creditors: CreditorRecord[],
+  preferredId: string | null | undefined,
+): { creditor: CreditorRecord | null; matchedPreferred: boolean } {
+  if (preferredId) {
+    const match = creditors.find((cr) => cr.id === preferredId);
+    if (match) return { creditor: match, matchedPreferred: true };
   }
+  return { creditor: creditors[0] ?? null, matchedPreferred: false };
+}
+
+export interface CreditorInfo {
+  creditorId: string;
+  name: string | null;
+  scheme: string;
+}
+
+export function toCreditorInfo(creditor: CreditorRecord): CreditorInfo {
+  return {
+    creditorId: creditor.id || "",
+    name: creditor.name || null,
+    scheme: creditor.scheme_identifiers?.[0]?.scheme || "sepa_core",
+  };
+}
+
+// Get creditor information for the landlord's GoCardless client
+export async function getCreditorInfo(scope: GoCardlessScope): Promise<CreditorInfo | null> {
+  const resolved = await getGoCardlessClientFor(scope);
+  const result = await resolved.client.creditors.list({});
+  const creditors = result.creditors ?? [];
+  const preferred =
+    resolved.source === "account"
+      ? resolved.creditorId
+      : process.env.GOCARDLESS_CREDITOR_ID?.trim() || null;
+  const { creditor, matchedPreferred } = selectCreditor(creditors, preferred);
+  if (!creditor) return null;
+  if (resolved.source === "instance" && creditors.length > 1 && !matchedPreferred) {
+    console.log(
+      `[GoCardless] The instance token has ${creditors.length} creditors; using the first (${creditor.id}). Set GOCARDLESS_CREDITOR_ID to choose another.`
+    );
+  }
+  return toCreditorInfo(creditor);
+}
+
+async function clientFor(scope: GoCardlessScope): Promise<GoCardlessClient> {
+  return (await getGoCardlessClientFor(scope)).client;
 }
 
 // Create a customer in GoCardless from tenant data
-export async function createCustomer(params: {
-  email: string;
-  firstName: string;
-  lastName: string;
-  phone?: string | null;
-  addressLine1?: string;
-  city?: string;
-  postalCode?: string;
-  countryCode?: string;
-}): Promise<string> {
-  const gc = getGoCardlessClient();
+export async function createCustomer(
+  scope: GoCardlessScope,
+  params: {
+    email: string;
+    firstName: string;
+    lastName: string;
+    phone?: string | null;
+    addressLine1?: string;
+    city?: string;
+    postalCode?: string;
+    countryCode?: string;
+  }
+): Promise<string> {
+  const gc = await clientFor(scope);
 
   const customer = await gc.customers.create({
     email: params.email,
@@ -159,16 +334,19 @@ export async function createCustomer(params: {
 
 // Create a billing request flow for mandate setup
 // Returns a URL the tenant visits to authorise the SEPA direct debit mandate
-export async function createMandateSetupFlow(params: {
-  tenantEmail: string;
-  tenantFirstName: string;
-  tenantLastName: string;
-  customerId?: string;
-  description: string;
-  redirectUrl: string;
-  metadata?: Record<string, string>;
-}): Promise<{ flowId: string; authorisationUrl: string; customerId?: string }> {
-  const gc = getGoCardlessClient();
+export async function createMandateSetupFlow(
+  scope: GoCardlessScope,
+  params: {
+    tenantEmail: string;
+    tenantFirstName: string;
+    tenantLastName: string;
+    customerId?: string;
+    description: string;
+    redirectUrl: string;
+    metadata?: Record<string, string>;
+  }
+): Promise<{ flowId: string; authorisationUrl: string; customerId?: string }> {
+  const gc = await clientFor(scope);
 
   // Step 1: Create a billing request
   const billingRequest = await gc.billingRequests.create({
@@ -212,31 +390,34 @@ export async function createMandateSetupFlow(params: {
 }
 
 // Get mandate details
-export async function getMandate(mandateId: string) {
-  const gc = getGoCardlessClient();
+export async function getMandate(scope: GoCardlessScope, mandateId: string) {
+  const gc = await clientFor(scope);
   return gc.mandates.get(mandateId);
 }
 
 // Cancel a mandate
-export async function cancelMandate(mandateId: string) {
-  const gc = getGoCardlessClient();
+export async function cancelMandate(scope: GoCardlessScope, mandateId: string) {
+  const gc = await clientFor(scope);
   return gc.mandates.cancel(mandateId);
 }
 
 // Create a payment against an active mandate
-export async function createPayment(params: {
-  mandateId: string;
-  amount: number; // in EUR (will be converted to cents)
-  description: string;
-  chargeDate?: string; // YYYY-MM-DD, defaults to earliest possible
-  metadata?: Record<string, string>;
-  idempotencyKey?: string;
-}): Promise<{
+export async function createPayment(
+  scope: GoCardlessScope,
+  params: {
+    mandateId: string;
+    amount: number; // in EUR (will be converted to cents)
+    description: string;
+    chargeDate?: string; // YYYY-MM-DD, defaults to earliest possible
+    metadata?: Record<string, string>;
+    idempotencyKey?: string;
+  }
+): Promise<{
   paymentId: string;
   status: string;
   chargeDate: string;
 }> {
-  const gc = getGoCardlessClient();
+  const gc = await clientFor(scope);
 
   // GoCardless amounts are in cents
   const amountInCents = Math.round(params.amount * 100);
@@ -251,6 +432,8 @@ export async function createPayment(params: {
       },
       charge_date: params.chargeDate || undefined,
       metadata: params.metadata,
+      // app_fee: a partner app may take a fee in cents on payments created
+      // with a landlord's token. Rentular charges none, so it is not sent.
     },
     params.idempotencyKey
       ? { "Idempotency-Key": params.idempotencyKey }
@@ -265,20 +448,20 @@ export async function createPayment(params: {
 }
 
 // Retry a failed payment
-export async function retryPayment(paymentId: string) {
-  const gc = getGoCardlessClient();
+export async function retryPayment(scope: GoCardlessScope, paymentId: string) {
+  const gc = await clientFor(scope);
   return gc.payments.retry(paymentId);
 }
 
 // Cancel a pending payment
-export async function cancelPayment(paymentId: string) {
-  const gc = getGoCardlessClient();
+export async function cancelPayment(scope: GoCardlessScope, paymentId: string) {
+  const gc = await clientFor(scope);
   return gc.payments.cancel(paymentId);
 }
 
 // List payments for a mandate
-export async function listPayments(mandateId: string) {
-  const gc = getGoCardlessClient();
+export async function listPayments(scope: GoCardlessScope, mandateId: string) {
+  const gc = await clientFor(scope);
   return gc.payments.list({ mandate: mandateId });
 }
 
