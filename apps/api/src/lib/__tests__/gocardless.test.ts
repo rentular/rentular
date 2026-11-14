@@ -11,8 +11,10 @@ const credentials: Record<string, { accessToken: string; environment: "sandbox" 
   "landlord-a": { accessToken: "TOKEN-A", environment: "live", organisationId: "OR-A", creditorId: "CR-A2" },
 };
 
+const revokeConnection = vi.fn(async (_ownerId: string, _reason: string | null) => undefined);
 vi.mock("../gocardlessConnections", () => ({
   loadActiveCredentials: vi.fn(async (ownerId: string) => credentials[ownerId] ?? null),
+  revokeConnection: (ownerId: string, reason: string | null) => revokeConnection(ownerId, reason),
 }));
 
 import {
@@ -39,6 +41,15 @@ function fakeFactory(token: string, environment: "sandbox" | "live"): GoCardless
     mandates: { get: vi.fn(async () => ({})), cancel: vi.fn(async () => ({})) },
     payments: {
       create: vi.fn(async (params: Record<string, unknown>) => {
+        if (token === "TOKEN-REVOKED") {
+          throw Object.assign(new Error("Access token revoked"), {
+            code: 401,
+            errors: [{ reason: "access_token_revoked", message: "The access token you've used has been revoked" }],
+          });
+        }
+        if (token === "TOKEN-FLAKY") {
+          throw Object.assign(new Error("Internal error"), { code: 500, errors: [{ reason: "internal_server_error" }] });
+        }
         paymentCreates.push({ token, params });
         return { id: "PM1", status: "pending_submission", charge_date: "2026-12-01" };
       }),
@@ -133,6 +144,28 @@ describe("hosted install", () => {
     await expect(getGoCardlessClientFor({ ownerId: "landlord-b" })).rejects.toThrow();
     expect(envTokenReads).toBe(0);
     expect(built.some((b) => b.token === "ENV-TOKEN")).toBe(false);
+  });
+
+  it("marks the connection revoked on 401 access_token_revoked and asks to reconnect", async () => {
+    credentials["landlord-r"] = { accessToken: "TOKEN-REVOKED", environment: "live", organisationId: "OR-R", creditorId: null };
+    revokeConnection.mockClear();
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    await expect(
+      createPayment({ ownerId: "landlord-r" }, { mandateId: "MD-R", amount: 10, description: "Rent" })
+    ).rejects.toMatchObject({ code: "GOCARDLESS_NOT_CONNECTED" });
+    expect(revokeConnection).toHaveBeenCalledTimes(1);
+    expect(revokeConnection.mock.calls[0][0]).toBe("landlord-r");
+    delete credentials["landlord-r"];
+  });
+
+  it("passes other GoCardless errors through without touching the connection", async () => {
+    credentials["landlord-f"] = { accessToken: "TOKEN-FLAKY", environment: "live", organisationId: "OR-F", creditorId: null };
+    revokeConnection.mockClear();
+    await expect(
+      createPayment({ ownerId: "landlord-f" }, { mandateId: "MD-F", amount: 10, description: "Rent" })
+    ).rejects.toMatchObject({ code: 500 });
+    expect(revokeConnection).not.toHaveBeenCalled();
+    delete credentials["landlord-f"];
   });
 
   it("is unavailable without partner credentials, even with an instance token", async () => {

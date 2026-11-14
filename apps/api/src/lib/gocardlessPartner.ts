@@ -99,6 +99,33 @@ export class PartnerOAuthError extends Error {
 
 type FetchLike = (input: string, init: RequestInit) => Promise<Response>;
 
+/**
+ * Revoke a landlord's access token at GoCardless. GoCardless always answers
+ * 200 with no body; a network or server error is reported as false so the
+ * caller can still wipe the token locally.
+ */
+export async function revokeAccessToken(
+  config: PartnerConfig,
+  accessToken: string,
+  fetchImpl: FetchLike = fetch,
+): Promise<boolean> {
+  const body = new URLSearchParams({
+    token: accessToken,
+    client_id: config.clientId,
+    client_secret: config.clientSecret,
+  });
+  try {
+    const res = await fetchImpl(`${CONNECT_HOSTS[config.environment]}/oauth/revoke`, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: body.toString(),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
 /** Exchange the authorization code for the landlord's access token. */
 export async function exchangeAuthorizationCode(
   config: PartnerConfig,

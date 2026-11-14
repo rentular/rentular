@@ -87,7 +87,11 @@ export async function loadActiveCredentials(ownerId: string): Promise<ActiveCred
   };
 }
 
-/** Store (or replace) the landlord's connection after a successful OAuth exchange. */
+/**
+ * Store the landlord's connection after a successful OAuth exchange. A
+ * reconnect gets a new token from GoCardless and the old one stops working,
+ * so the owner's existing row is always overwritten (one row per owner).
+ */
 export async function saveConnection(
   ownerId: string,
   input: {

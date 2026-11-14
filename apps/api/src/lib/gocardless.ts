@@ -1,7 +1,7 @@
 import { createHash } from "crypto";
 import { GOCARDLESS_SCHEME } from "@rentular/shared";
 import { resolveInstance } from "./bankProviderOptions";
-import { loadActiveCredentials } from "./gocardlessConnections";
+import { loadActiveCredentials, revokeConnection } from "./gocardlessConnections";
 import { isPartnerConfigured, type GoCardlessEnvironment } from "./gocardlessPartner";
 
 /**
@@ -129,6 +129,54 @@ export function instanceEnvironment(): GoCardlessEnvironment {
   return process.env.GOCARDLESS_ENVIRONMENT === "live" ? "live" : "sandbox";
 }
 
+/**
+ * GoCardless answers 401 with reason access_token_revoked once the landlord
+ * removed Rentular from their account (or a newer token replaced this one).
+ */
+export function isAccessTokenRevoked(err: unknown): boolean {
+  if (!err || typeof err !== "object") return false;
+  const e = err as { code?: unknown; errors?: Array<{ reason?: unknown }>; message?: unknown };
+  const reasons = Array.isArray(e.errors) ? e.errors.map((x) => x?.reason) : [];
+  if (reasons.includes("access_token_revoked")) return true;
+  return e.code === 401 && typeof e.message === "string" && e.message.includes("access_token_revoked");
+}
+
+/**
+ * Wrap a landlord's client so a revoked token marks their connection revoked
+ * and surfaces as GOCARDLESS_NOT_CONNECTED, which the UI turns into a
+ * "connect GoCardless again" prompt.
+ */
+function guardRevokedToken(client: GoCardlessClient, ownerId: string): GoCardlessClient {
+  const wrapResource = (resource: Record<string, unknown>) =>
+    new Proxy(resource, {
+      get(target, prop, receiver) {
+        const value = Reflect.get(target, prop, receiver);
+        if (typeof value !== "function") return value;
+        return async (...args: unknown[]) => {
+          try {
+            return await (value as (...a: unknown[]) => Promise<unknown>).apply(target, args);
+          } catch (err) {
+            if (!isAccessTokenRevoked(err)) throw err;
+            console.warn(`[GoCardless] Token of landlord ${ownerId} was revoked at GoCardless; marking the connection revoked`);
+            await revokeConnection(ownerId, "Access was revoked at GoCardless. Connect again.").catch((e) =>
+              console.error("[GoCardless] could not mark the connection revoked:", (e as Error).message)
+            );
+            throw new GoCardlessUnavailableError(
+              "GOCARDLESS_NOT_CONNECTED",
+              "Your GoCardless access was revoked. Connect GoCardless again in Settings."
+            );
+          }
+        };
+      },
+    });
+  return new Proxy(client, {
+    get(target, prop, receiver) {
+      const value = Reflect.get(target, prop, receiver);
+      return value && typeof value === "object" ? wrapResource(value as Record<string, unknown>) : value;
+    },
+  });
+}
+
 export interface ResolvedClient {
   client: GoCardlessClient;
   source: "account" | "instance";
@@ -157,7 +205,7 @@ export async function getGoCardlessClientFor(scope: GoCardlessScope): Promise<Re
       );
     }
     return {
-      client: clientForToken(creds.accessToken, creds.environment),
+      client: guardRevokedToken(clientForToken(creds.accessToken, creds.environment), scope.ownerId),
       source: "account",
       environment: creds.environment,
       creditorId: creds.creditorId,

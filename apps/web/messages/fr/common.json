@@ -586,13 +586,14 @@
       "lastError": "Dernière erreur",
       "disconnectButton": "Déconnecter",
       "disconnectConfirm": "Déconnecter GoCardless ? Vos mandats existants restent dans votre compte GoCardless, mais Rentular ne pourra plus encaisser de loyer tant que vous ne vous reconnectez pas.",
-      "disconnected": "GoCardless est déconnecté. Vous pouvez aussi retirer Rentular des applications connectées dans votre tableau de bord GoCardless.",
+      "disconnected": "GoCardless est déconnecté. Rentular n'a plus accès à votre compte GoCardless.",
       "connectedToast": "Votre compte GoCardless est connecté.",
       "connectError": "La connexion à GoCardless n'a pas fonctionné. Veuillez réessayer.",
       "connectCancelled": "Vous vous êtes arrêté chez GoCardless, rien n'a été connecté.",
       "unavailable": "La domiciliation n'est pas encore disponible sur Rentular. Les locataires peuvent continuer à payer par virement.",
       "notLandlord": "Seul le propriétaire d'un bien peut connecter un compte GoCardless.",
-      "instanceConfigured": "Cette installation encaisse avec son propre compte GoCardless (GOCARDLESS_ACCESS_TOKEN sur le serveur)."
+      "instanceConfigured": "Cette installation encaisse avec son propre compte GoCardless (GOCARDLESS_ACCESS_TOKEN sur le serveur).",
+      "revokedAtGoCardless": "GoCardless n'accepte plus l'accès de Rentular à votre compte. Reconnectez-le pour continuer à encaisser le loyer."
     }
   },
   "landing": {

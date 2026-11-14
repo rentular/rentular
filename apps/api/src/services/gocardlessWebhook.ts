@@ -123,7 +123,9 @@ export async function processGoCardlessEvent(
         break;
       case "organisations":
         if (event.action === "disconnected" && owner) {
-          // The landlord removed Rentular from their GoCardless account.
+          // Not a documented partner event; kept as a harmless extra. The
+          // documented signal is a 401 access_token_revoked on an API call,
+          // handled in lib/gocardless.ts.
           await store.revokeOwner(owner, "Disconnected in GoCardless");
           console.log(`[Webhook] Landlord ${owner} disconnected their GoCardless account`);
         }

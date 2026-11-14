@@ -5,6 +5,7 @@ import {
   getPartnerConfig,
   getPartnerRedirectUri,
   PartnerOAuthError,
+  revokeAccessToken,
   type PartnerConfig,
 } from "../gocardlessPartner";
 
@@ -89,6 +90,23 @@ describe("code exchange", () => {
     expect(err).toBeInstanceOf(PartnerOAuthError);
     expect(err.message).toBe("invalid_grant: code expired");
     expect(err.message).not.toContain("super-secret-value");
+  });
+
+  it("revokes a token with token, client_id and client_secret, best effort", async () => {
+    const fetchImpl = vi.fn(async () => new Response(null, { status: 200 }));
+    expect(await revokeAccessToken(config, "LANDLORD-TOKEN", fetchImpl)).toBe(true);
+    const [url, init] = fetchImpl.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toBe("https://connect-sandbox.gocardless.com/oauth/revoke");
+    expect(init.method).toBe("POST");
+    const body = new URLSearchParams(String(init.body));
+    expect(body.get("token")).toBe("LANDLORD-TOKEN");
+    expect(body.get("client_id")).toBe("client-123");
+    expect(body.get("client_secret")).toBe("super-secret-value");
+
+    const failing = vi.fn(async () => {
+      throw new Error("network down");
+    });
+    expect(await revokeAccessToken(config, "T", failing)).toBe(false);
   });
 
   it("rejects a response without organisation_id", async () => {

@@ -586,13 +586,14 @@
       "lastError": "Last error",
       "disconnectButton": "Disconnect",
       "disconnectConfirm": "Disconnect GoCardless? Existing mandates stay in your GoCardless account, but Rentular can no longer collect rent until you connect again.",
-      "disconnected": "GoCardless disconnected. You can also remove Rentular from the connected apps in your GoCardless dashboard.",
+      "disconnected": "GoCardless disconnected. Rentular no longer has access to your GoCardless account.",
       "connectedToast": "Your GoCardless account is connected.",
       "connectError": "Connecting GoCardless did not work. Please try again.",
       "connectCancelled": "You stopped at GoCardless, nothing was connected.",
       "unavailable": "Direct debit is not available on Rentular yet. Tenants can keep paying by bank transfer.",
       "notLandlord": "Only the owner of a property can connect a GoCardless account.",
-      "instanceConfigured": "This installation collects with its own GoCardless account (GOCARDLESS_ACCESS_TOKEN on the server)."
+      "instanceConfigured": "This installation collects with its own GoCardless account (GOCARDLESS_ACCESS_TOKEN on the server).",
+      "revokedAtGoCardless": "GoCardless no longer accepts Rentular's access to your account. Connect again to keep collecting rent."
     }
   },
   "landing": {

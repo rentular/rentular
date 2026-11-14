@@ -586,13 +586,14 @@
       "lastError": "Letzter Fehler",
       "disconnectButton": "Trennen",
       "disconnectConfirm": "GoCardless trennen? Ihre bestehenden Mandate bleiben in Ihrem GoCardless-Konto, aber Rentular kann keine Miete mehr einziehen, bis Sie wieder verbinden.",
-      "disconnected": "GoCardless ist getrennt. Sie können Rentular auch in Ihrem GoCardless-Dashboard bei den verbundenen Apps entfernen.",
+      "disconnected": "GoCardless ist getrennt. Rentular hat keinen Zugriff mehr auf Ihr GoCardless-Konto.",
       "connectedToast": "Ihr GoCardless-Konto ist verbunden.",
       "connectError": "Die Verbindung mit GoCardless hat nicht geklappt. Bitte versuchen Sie es erneut.",
       "connectCancelled": "Sie haben bei GoCardless abgebrochen, es wurde nichts verbunden.",
       "unavailable": "Lastschrift ist auf Rentular noch nicht verfügbar. Mieter können weiter per Überweisung zahlen.",
       "notLandlord": "Nur der Eigentümer einer Immobilie kann ein GoCardless-Konto verbinden.",
-      "instanceConfigured": "Diese Installation zieht mit einem eigenen GoCardless-Konto ein (GOCARDLESS_ACCESS_TOKEN auf dem Server)."
+      "instanceConfigured": "Diese Installation zieht mit einem eigenen GoCardless-Konto ein (GOCARDLESS_ACCESS_TOKEN auf dem Server).",
+      "revokedAtGoCardless": "GoCardless akzeptiert den Zugriff von Rentular auf Ihr Konto nicht mehr. Verbinden Sie erneut, um die Miete weiter einzuziehen."
     }
   },
   "landing": {

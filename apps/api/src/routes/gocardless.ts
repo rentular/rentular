@@ -9,7 +9,7 @@
  *   GET  /creditor             the creditor of this user's account
  *   GET  /connect              hosted: start the partner OAuth, returns { url }
  *   GET  /connect/callback     redirect target after GoCardless (state JWT, no session)
- *   POST /disconnect           forget this user's GoCardless token
+ *   POST /disconnect           revoke this user's GoCardless token and forget it
  *   GET  /mandates             mandates on the user's accessible properties
  *   POST /mandates/setup       start a tenant mandate (billing request flow)
  *   POST /mandates/complete    store the mandate after the tenant returns
@@ -43,6 +43,7 @@ import {
 } from "../lib/gocardless";
 import {
   getConnectionStatus,
+  loadActiveCredentials,
   ownerOfProperty,
   revokeConnection,
   saveConnection,
@@ -52,6 +53,7 @@ import {
   exchangeAuthorizationCode,
   getPartnerConfig,
   getPartnerRedirectUri,
+  revokeAccessToken,
 } from "../lib/gocardlessPartner";
 import { signOAuthState, verifyOAuthState } from "../lib/bankOAuthState";
 import { getRequiredUserId } from "../lib/routeAuth";
@@ -301,10 +303,21 @@ gocardlessRouter.post("/disconnect", async (c) => {
   if (!isHostedInstance()) {
     return c.json({ error: "This installation uses its own GoCardless token.", code: "NOT_HOSTED" }, 400);
   }
-  // The token is wiped here. Removing Rentular from the connected apps in the
-  // GoCardless dashboard revokes it on their side too.
+  // Revoke the token at GoCardless (best effort), then wipe it here anyway.
+  let revokedAtGoCardless = false;
+  const partner = getPartnerConfig();
+  if (partner) {
+    try {
+      const creds = await loadActiveCredentials(userId);
+      if (creds) revokedAtGoCardless = await revokeAccessToken(partner, creds.accessToken);
+    } catch (err) {
+      console.error("[GoCardless] revoke at GoCardless failed:", (err as Error).message);
+    }
+  }
   await revokeConnection(userId, null);
-  console.log(`[GoCardless] Landlord ${userId} disconnected their GoCardless account`);
+  console.log(
+    `[GoCardless] Landlord ${userId} disconnected their GoCardless account (revoked at GoCardless: ${revokedAtGoCardless})`
+  );
   return c.json({ data: await getConnectionStatus(userId) });
 });
 

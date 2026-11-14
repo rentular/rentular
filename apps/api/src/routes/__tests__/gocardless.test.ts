@@ -62,7 +62,11 @@ vi.mock("../../lib/gocardlessConnections", async () => {
         storedRow = { ...storedRow, status: "revoked", accessTokenEncrypted: null, accessTokenIv: null, accessTokenAuthTag: null };
       }
     }),
-    loadActiveCredentials: vi.fn(async () => null),
+    loadActiveCredentials: vi.fn(async () =>
+      storedRow && storedRow.status === "active"
+        ? { accessToken: LANDLORD_TOKEN, environment: "sandbox", organisationId: storedRow.organisationId, creditorId: null }
+        : null
+    ),
     ownerOfProperty: vi.fn(async () => "landlord-a"),
     findOwnerByOrganisation: vi.fn(async () => null),
   };
@@ -76,9 +80,14 @@ vi.mock("../../lib/propertyAccess", () => ({
 }));
 
 const exchange = vi.fn();
+const revokeAtGc = vi.fn(async (..._a: unknown[]) => true);
 vi.mock("../../lib/gocardlessPartner", async () => {
   const actual = await vi.importActual<typeof import("../../lib/gocardlessPartner")>("../../lib/gocardlessPartner");
-  return { ...actual, exchangeAuthorizationCode: (...a: unknown[]) => exchange(...a) };
+  return {
+    ...actual,
+    exchangeAuthorizationCode: (...a: unknown[]) => exchange(...a),
+    revokeAccessToken: (...a: unknown[]) => revokeAtGc(...a),
+  };
 });
 
 import { gocardlessRouter } from "../gocardless";
@@ -174,6 +183,26 @@ describe("connect callback", () => {
     const res = await connectWithValidState();
     expect(res.headers.get("location")).toContain("reason=not_available");
     expect(saved).toHaveLength(0);
+  });
+});
+
+describe("disconnect", () => {
+  it("revokes the token at GoCardless, then wipes it locally", async () => {
+    await connectWithValidState();
+    revokeAtGc.mockClear();
+    const res = await app().request("/gocardless/disconnect", { method: "POST" });
+    expect(res.status).toBe(200);
+    expect(revokeAtGc).toHaveBeenCalledTimes(1);
+    expect(revokeAtGc.mock.calls[0][1]).toBe(LANDLORD_TOKEN);
+    expect(storedRow).toMatchObject({ status: "revoked", accessTokenEncrypted: null });
+  });
+
+  it("still wipes locally when the revoke call fails", async () => {
+    await connectWithValidState();
+    revokeAtGc.mockResolvedValueOnce(false);
+    const res = await app().request("/gocardless/disconnect", { method: "POST" });
+    expect(res.status).toBe(200);
+    expect(storedRow).toMatchObject({ status: "revoked", accessTokenEncrypted: null });
   });
 });
 

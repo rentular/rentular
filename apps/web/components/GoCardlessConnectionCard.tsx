@@ -188,11 +188,14 @@ export function GoCardlessConnectionCard({
               <span className="inline-block h-2.5 w-2.5 rounded-full bg-amber-500" />
               {connection?.status === "revoked" ? t("revoked") : t("notConnected")}
             </div>
-            {connection?.lastError && (
+            {connection?.status === "revoked" && connection.lastError ? (
+              // Revoked at GoCardless (401 access_token_revoked): ask to reconnect.
+              <p className="text-sm text-amber-700 dark:text-amber-400">{t("revokedAtGoCardless")}</p>
+            ) : connection?.lastError ? (
               <p className="text-sm text-muted-foreground">
                 {t("lastError")}: {connection.lastError}
               </p>
-            )}
+            ) : null}
             {status.canConnect ? (
               <>
                 <p className="text-sm text-muted-foreground">{t("connectHelp")}</p>

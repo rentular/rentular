@@ -424,6 +424,11 @@ them. The instance token is ignored in this mode.
    their GoCardless organisation; events for an organisation nobody connected
    are logged and ignored.
 
+Disconnecting in Rentular revokes the landlord's token at GoCardless. When a
+landlord removes Rentular on the GoCardless side instead, the next API call
+gets `access_token_revoked`; Rentular then marks the connection revoked and
+asks the landlord to connect again.
+
 Without the partner credentials a hosted install simply offers no direct debit.
 Rentular takes no app fee on these payments.
 
