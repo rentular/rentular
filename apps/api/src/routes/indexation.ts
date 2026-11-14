@@ -33,6 +33,9 @@ import {
   localYmd,
   type BrusselsEpcInfo,
   type IndexationBlockReason,
+  type WalloniaPebInfo,
+  walloniaColumnsToStore,
+  walloniaInputsFromLease,
 } from "../services/indexationCalc";
 import {
   generateDefaultIndexationEmail,
@@ -94,6 +97,7 @@ interface CalculationResult {
   correctionMonth: number | null;
   formulaNote: string | undefined;
   brussels: BrusselsEpcInfo | null;
+  wallonia: WalloniaPebInfo | null;
   indexationBlocked: IndexationBlockReason | null;
   effectiveDate: string;
   // Legal anniversary date of this indexation.
@@ -241,6 +245,7 @@ async function calculateLeaseIndexation(
     brusselsEpcFactor: lease.brusselsEpcFactor != null ? Number(lease.brusselsEpcFactor) : null,
     leaseRegistered: lease.leaseRegistered,
     currentRent: Number(lease.monthlyRent),
+    ...walloniaInputsFromLease(lease),
   });
   const {
     currentIndex,
@@ -253,6 +258,7 @@ async function calculateLeaseIndexation(
     correctionMonth,
     formulaNote,
     brussels,
+    wallonia,
     indexationBlocked,
     effectiveDate: effectiveDateStr,
     indexationDate,
@@ -300,6 +306,7 @@ async function calculateLeaseIndexation(
     correctionMonth,
     formulaNote,
     brussels,
+    wallonia,
     indexationBlocked,
     effectiveDate: effectiveDateStr,
     indexationDate,
@@ -322,7 +329,9 @@ function blockedIndexationError(reason: IndexationBlockReason): { status: number
     message:
       reason === "brussels_not_registered"
         ? "In Brussels the rent of an unregistered lease may not be indexed. Register the lease and tick 'Lease registered' on the contract first."
-        : "In Brussels the rent may not be indexed without an EPB certificate given to the tenant. Add the EPB label on the property first.",
+        : reason === "wallonia_index_missing"
+          ? "The health index needed for the Walloon 2022-2023 PEB rule is missing, so the new rent cannot be computed yet."
+          : "In Brussels the rent may not be indexed without an EPB certificate given to the tenant. Add the EPB label on the property first.",
   };
 }
 
@@ -364,6 +373,7 @@ function buildIndexationEmailParams(input: {
     correctionApplied: calc.correctionApplied,
     correctionMonth: calc.correctionMonth,
     brusselsPeriod: calc.brussels?.factor ? calc.brussels.anniversaryPeriod : null,
+    wallonia: calc.wallonia,
     epcIndexationFactor: calc.epcIndexationFactor,
     paymentMethod: calc.lease.paymentMethod,
     ownerName: owner.name || owner.email || "Your landlord",
@@ -527,6 +537,7 @@ indexationRouter.get("/calculate/:leaseId", async (c) => {
       formula: "newRent = baseRent * (currentIndex / baseIndex)",
       formulaNote: calc.formulaNote,
       brussels: calc.brussels,
+      wallonia: calc.wallonia,
       indexationBlocked: calc.indexationBlocked,
     });
   } catch (error: unknown) {
@@ -561,6 +572,12 @@ indexationRouter.get("/preview", async (c) => {
     const leaseRegistered = c.req.query("leaseRegistered") === "true";
     const storedFactorRaw = Number(c.req.query("brusselsEpcFactor"));
     const brusselsEpcFactor = Number.isFinite(storedFactorRaw) && storedFactorRaw > 0 ? storedFactorRaw : null;
+    const wallonia = walloniaInputsFromLease({
+      walloniaPebLabel2022: c.req.query("walloniaPebLabel2022") || null,
+      walloniaAdaptedRent: c.req.query("walloniaAdaptedRent") || null,
+      walloniaAdaptedIndex: c.req.query("walloniaAdaptedIndex") || null,
+      walloniaAdaptedIndexMonth: c.req.query("walloniaAdaptedIndexMonth") || null,
+    });
 
     if (!baseRent || !baseIndex || !startDate) {
       return c.json(
@@ -580,6 +597,7 @@ indexationRouter.get("/preview", async (c) => {
       leaseRegistered,
       brusselsEpcFactor,
       currentRent: Number.isFinite(currentRent) && currentRent > 0 ? currentRent : null,
+      ...wallonia,
     });
 
     // Estimate when the rent was last indexed by back-solving the health index
@@ -624,6 +642,7 @@ indexationRouter.get("/preview", async (c) => {
       correctionMonth: core.correctionMonth,
       formulaNote: core.formulaNote,
       brussels: core.brussels,
+      wallonia: core.wallonia,
       indexationBlocked: core.indexationBlocked,
       currentRent:
         Number.isFinite(currentRent) && currentRent > 0 ? currentRent : null,
@@ -750,6 +769,7 @@ indexationRouter.get("/raise-summary", async (c) => {
           brusselsEpcFactor: lease.brusselsEpcFactor != null ? Number(lease.brusselsEpcFactor) : null,
           leaseRegistered: lease.leaseRegistered,
           currentRent: Number(lease.monthlyRent),
+          ...walloniaInputsFromLease(lease),
         });
         const currentRent = Number(lease.monthlyRent);
         const shownRent = core.canApply ? core.newRent : core.newRentAtLatest;
@@ -1137,6 +1157,9 @@ indexationRouter.post(
                 brusselsEpcFactorSetAt: localYmd(new Date()),
               }
             : {}),
+          // Wallonia: the 2022-2023 PEB label and adapted rent are fixed at the
+          // first indexation and stay the base until the lease ends.
+          ...(calc.lease.region === "wallonia" ? walloniaColumnsToStore(calc.wallonia) : {}),
           updatedAt: new Date(),
         })
         .where(eq(leases.id, leaseId));

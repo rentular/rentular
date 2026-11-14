@@ -857,3 +857,58 @@ function applyFlandersEpcRestriction(
 }
 
 export type IndexationCore = Awaited<ReturnType<typeof computeIndexationCore>>;
+
+/** Labels accepted for the Walloon 2022-2023 PEB label ("none" = no certificate). */
+export const WALLONIA_PEB_LABELS = ["A++", "A+", "A", "B", "C", "D", "E", "F", "G", "none"] as const;
+
+/**
+ * Walloon PEB fields of a lease row, as computeIndexationCore expects them.
+ * Values stored as decimal strings become numbers; anything else is null.
+ */
+export function walloniaInputsFromLease(lease: {
+  walloniaPebLabel2022?: string | null;
+  walloniaAdaptedRent?: string | null;
+  walloniaAdaptedIndex?: string | null;
+  walloniaAdaptedIndexMonth?: string | null;
+}): {
+  walloniaPebLabel2022: string | null;
+  walloniaAdaptedRent: number | null;
+  walloniaAdaptedIndex: number | null;
+  walloniaAdaptedIndexMonth: string | null;
+} {
+  const num = (v: string | null | undefined): number | null => {
+    if (v == null || v === "") return null;
+    const n = Number(v);
+    return Number.isFinite(n) && n > 0 ? n : null;
+  };
+  return {
+    walloniaPebLabel2022: lease.walloniaPebLabel2022 || null,
+    walloniaAdaptedRent: num(lease.walloniaAdaptedRent),
+    walloniaAdaptedIndex: num(lease.walloniaAdaptedIndex),
+    walloniaAdaptedIndexMonth: lease.walloniaAdaptedIndexMonth || null,
+  };
+}
+
+/**
+ * Lease columns to store when an indexation is applied to a Walloon lease
+ * whose 2022-2023 PEB base is not stored yet. From then on the base is fixed,
+ * whatever certificate the property gets later. Empty when there is nothing to
+ * store (rule not applicable, already stored, window not reached yet or an
+ * index missing).
+ */
+export function walloniaColumnsToStore(info: WalloniaPebInfo | null): {
+  walloniaPebLabel2022?: string;
+  walloniaAdaptedRent?: string;
+  walloniaAdaptedIndex?: string;
+  walloniaAdaptedIndexMonth?: string;
+} {
+  if (!info || info.fromLease || info.phase === "before" || info.missingIndexMonth) return {};
+  const label = { walloniaPebLabel2022: info.label.slice(0, 4) };
+  if (info.adaptedRent === null || info.adaptedIndex === null) return label;
+  return {
+    ...label,
+    walloniaAdaptedRent: info.adaptedRent.toFixed(2),
+    walloniaAdaptedIndex: info.adaptedIndex.toFixed(2),
+    walloniaAdaptedIndexMonth: info.adaptedIndexMonth,
+  };
+}

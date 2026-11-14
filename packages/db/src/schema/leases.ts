@@ -89,6 +89,16 @@ export const leases = mysqlTable("leases", {
   brusselsEpcFactor: decimal("brussels_epc_factor", { precision: 12, scale: 9 }),
   brusselsEpcFactorLabel: varchar("brussels_epc_factor_label", { length: 4 }),
   brusselsEpcFactorSetAt: date("brussels_epc_factor_set_at", { mode: "string" }),
+  // Wallonia, decree of 19 October 2022: PEB label in force from 1 November 2022
+  // to 31 October 2023 ("none" without a certificate). Set by the landlord when
+  // the label changed since, else stored at the first indexation.
+  walloniaPebLabel2022: varchar("wallonia_peb_label_2022", { length: 4 }),
+  // "Loyer adapté PEB" and the health index of the month before the anniversary
+  // in that window (YYYY-MM). Stored at the first indexation; later indexations
+  // use them as base rent and base index until the lease ends.
+  walloniaAdaptedRent: decimal("wallonia_adapted_rent", { precision: 10, scale: 2 }),
+  walloniaAdaptedIndex: decimal("wallonia_adapted_index", { precision: 8, scale: 2 }),
+  walloniaAdaptedIndexMonth: varchar("wallonia_adapted_index_month", { length: 7 }),
   // Late payment administrative fee (per contract)
   latePaymentFeeEnabled: boolean("late_payment_fee_enabled").default(false).notNull(),
   latePaymentFeeAmount: decimal("late_payment_fee_amount", { precision: 10, scale: 2 }).default("15.00"),

@@ -20,6 +20,7 @@ import {
   letterLanguage,
   type LetterLanguage,
 } from "../lib/belgianFormat";
+import type { WalloniaPebInfo } from "./indexationCalc";
 
 export interface IndexationEmailParams {
   tenantLanguage: string; // "en" | "nl" | "fr" | "de"
@@ -46,6 +47,8 @@ export interface IndexationEmailParams {
   // Brussels anniversary period whose correction factor applied ("1".."12",
   // "10a" = 1 to 13 October, "10b" = 14 to 31 October), else null.
   brusselsPeriod?: string | null;
+  // Wallonia: the 2022-2023 PEB rule (adapted base rent and index), else null.
+  wallonia?: WalloniaPebInfo | null;
   epcIndexationFactor: number;
   paymentMethod: string | null;
   ownerName: string;
@@ -84,6 +87,12 @@ interface LetterCopy {
   brusselsPeriod(period: string, monthName: string): string;
   brusselsCorrection(labelPhrase: string, period: string, factor: string): string;
   restrictedIncrease(region: string, labelPhrase: string, pct: string | null): string;
+  // Wallonia, decree of 19 October 2022. peb: "PEB D" or "no PEB certificate";
+  // share: "75% of the increase" or "no increase".
+  walloniaPeb(label: string | null): string;
+  walloniaShare(pct: string | null): string;
+  walloniaWindow(peb: string, share: string, due: string): string;
+  walloniaAfter(peb: string, share: string, anniversary: string, adapted: string, month: string, index: string): string;
   rounding(applied: string): string;
   standingOrder: string;
 }
@@ -116,6 +125,12 @@ const COPY: Record<LetterLanguage, LetterCopy> = {
         ? `${where} mag de huur van een woning ${labelPhrase} niet geïndexeerd worden, er is geen stijging toegestaan:`
         : `${where} mag de huur van een woning ${labelPhrase} slechts voor ${pct}% van de stijging geïndexeerd worden:`;
     },
+    walloniaPeb: (label) => (label ? `PEB ${label}` : "geen PEB-certificaat"),
+    walloniaShare: (pct) => (pct === null ? "geen stijging" : `${pct}% van de stijging`),
+    walloniaWindow: (peb, share, due) =>
+      `Het Waalse decreet van 19 oktober 2022 beperkt de indexering op een verjaardag tussen 1 november 2022 en 31 oktober 2023 volgens het PEB-certificaat (${peb}: ${share}). De stijging geldt ten opzichte van de huur die vóór deze verjaardag verschuldigd was, ${due}:`,
+    walloniaAfter: (peb, share, anniversary, adapted, month, index) =>
+      `Het Waalse decreet van 19 oktober 2022 beperkte de indexering op de verjaardag van ${anniversary} volgens het PEB-certificaat (${peb}: ${share}). Tot het einde van de huurovereenkomst is de basishuur daarom de aangepaste huur van toen, ${adapted}, en de basisindex die van ${month}, ${index}:`,
     rounding: (applied) => `We ronden dit bedrag af naar beneden zodat het komt op ${applied}.`,
     standingOrder: "Gelieve uw doorlopende opdracht aan te passen indien nodig.",
   },
@@ -146,6 +161,12 @@ const COPY: Record<LetterLanguage, LetterCopy> = {
         ? `${where}, the rent of a home ${labelPhrase} may not be indexed, so no increase is allowed:`
         : `${where}, the rent of a home ${labelPhrase} may only be indexed by ${pct}% of the increase:`;
     },
+    walloniaPeb: (label) => (label ? `PEB ${label}` : "no PEB certificate"),
+    walloniaShare: (pct) => (pct === null ? "no increase" : `${pct}% of the increase`),
+    walloniaWindow: (peb, share, due) =>
+      `The Walloon decree of 19 October 2022 limits the indexation on an anniversary between 1 November 2022 and 31 October 2023 according to the PEB certificate (${peb}: ${share}). The increase is counted from the rent due before this anniversary, ${due}:`,
+    walloniaAfter: (peb, share, anniversary, adapted, month, index) =>
+      `The Walloon decree of 19 October 2022 limited the indexation on the anniversary of ${anniversary} according to the PEB certificate (${peb}: ${share}). Until the end of the lease, the base rent is therefore the rent adapted then, ${adapted}, and the base index is the index of ${month}, ${index}:`,
     rounding: (applied) => `We round this amount down to ${applied}.`,
     standingOrder: "Please adjust your standing order if needed.",
   },
@@ -176,6 +197,12 @@ const COPY: Record<LetterLanguage, LetterCopy> = {
         ? `${where}, le loyer d'un logement ${labelPhrase} ne peut pas être indexé, aucune hausse n'est autorisée :`
         : `${where}, le loyer d'un logement ${labelPhrase} ne peut être indexé qu'à hauteur de ${pct} % de la hausse :`;
     },
+    walloniaPeb: (label) => (label ? `PEB ${label}` : "pas de certificat PEB"),
+    walloniaShare: (pct) => (pct === null ? "pas d'indexation" : `${pct} % de l'indexation`),
+    walloniaWindow: (peb, share, due) =>
+      `Le décret wallon du 19 octobre 2022 limite l'indexation à une date anniversaire comprise entre le 1er novembre 2022 et le 31 octobre 2023 en fonction du certificat PEB (${peb} : ${share}). La hausse se calcule par rapport au loyer dû avant cette date anniversaire, ${due} :`,
+    walloniaAfter: (peb, share, anniversary, adapted, month, index) =>
+      `Le décret wallon du 19 octobre 2022 a limité l'indexation à la date anniversaire du ${anniversary} en fonction du certificat PEB (${peb} : ${share}). Jusqu'à la fin du bail, le loyer de base est donc le loyer adapté à ce moment, ${adapted}, et l'indice de départ est l'indice santé de ${month}, ${index} :`,
     rounding: (applied) => `Nous arrondissons ce montant vers le bas, à ${applied}.`,
     standingOrder: "Merci d'adapter votre ordre permanent si nécessaire.",
   },
@@ -206,6 +233,12 @@ const COPY: Record<LetterLanguage, LetterCopy> = {
         ? `${where} darf die Miete einer Wohnung ${labelPhrase} nicht indexiert werden, eine Erhöhung ist nicht zulässig:`
         : `${where} darf die Miete einer Wohnung ${labelPhrase} nur um ${pct} % der Steigerung indexiert werden:`;
     },
+    walloniaPeb: (label) => (label ? `PEB ${label}` : "kein PEB-Ausweis"),
+    walloniaShare: (pct) => (pct === null ? "keine Erhöhung" : `${pct} % der Erhöhung`),
+    walloniaWindow: (peb, share, due) =>
+      `Das wallonische Dekret vom 19. Oktober 2022 begrenzt die Indexierung an einem Jahrestag zwischen dem 1. November 2022 und dem 31. Oktober 2023 nach dem PEB-Ausweis (${peb}: ${share}). Die Erhöhung wird ab der vor diesem Jahrestag geschuldeten Miete berechnet, ${due}:`,
+    walloniaAfter: (peb, share, anniversary, adapted, month, index) =>
+      `Das wallonische Dekret vom 19. Oktober 2022 hat die Indexierung am Jahrestag vom ${anniversary} nach dem PEB-Ausweis begrenzt (${peb}: ${share}). Bis zum Ende des Mietvertrags ist die Basismiete deshalb die damals angepasste Miete, ${adapted}, und der Basisindex der Index von ${month}, ${index}:`,
     rounding: (applied) => `Wir runden diesen Betrag auf ${applied} ab.`,
     standingOrder: "Bitte passen Sie Ihren Dauerauftrag bei Bedarf an.",
   },
@@ -347,7 +380,52 @@ function formatPercent(factor: number): string | null {
   return pct <= 0 ? null : String(pct).replace(".", ",");
 }
 
+/**
+ * The Walloon adapted base when it replaces the contract base for this
+ * indexation (an indexation after the 2022-2023 window), else null.
+ */
+function walloniaBaseInUse(p: IndexationEmailParams): { rent: number; index: number; month: string } | null {
+  const w = p.wallonia;
+  if (p.region !== "wallonia" || !w || w.phase !== "after" || w.missingIndexMonth) return null;
+  if (w.adaptedRent === null || w.adaptedIndex === null) return null;
+  return { rent: w.adaptedRent, index: w.adaptedIndex, month: w.adaptedIndexMonth };
+}
+
+function walloniaParagraph(p: IndexationEmailParams, copy: LetterCopy, lang: LetterLanguage): string {
+  const w = p.wallonia;
+  if (p.region !== "wallonia" || !w || w.missingIndexMonth || w.adaptedRent === null || w.adaptedIndex === null) {
+    return "";
+  }
+  const peb = copy.walloniaPeb(w.label && w.label !== "none" ? w.label : null);
+  const share = copy.walloniaShare(formatPercent(w.share));
+  const calculated = formatEur(p.calculatedNewRent);
+  if (w.phase === "window" && w.rentDueBefore !== null && w.indexedAtWindow !== null) {
+    const due = formatEur(w.rentDueBefore);
+    return [
+      copy.walloniaWindow(peb, share, due),
+      "",
+      `${due} + (${formatEur(w.indexedAtWindow)} - ${due}) × ${formatFactor(w.share)} = ${formatEur(w.adaptedRent)}`,
+    ].join("\n");
+  }
+  const base = walloniaBaseInUse(p);
+  if (!base) return "";
+  const adapted = formatEur(base.rent);
+  return [
+    copy.walloniaAfter(
+      peb,
+      share,
+      formatLongDate(w.windowAnniversary, lang),
+      adapted,
+      formatMonthYear(base.month, lang),
+      formatIndexValue(base.index)
+    ),
+    "",
+    `${adapted} × ${formatIndexValue(p.currentIndex)} / ${formatIndexValue(base.index)} = ${calculated}`,
+  ].join("\n");
+}
+
 function epcParagraph(p: IndexationEmailParams, copy: LetterCopy, lang: LetterLanguage): string {
+  if (p.region === "wallonia" && p.wallonia) return walloniaParagraph(p, copy, lang);
   if (!p.correctionApplied && !p.epcRestricted) return "";
   const label = p.epcLabel && p.epcLabel.toLowerCase() !== "none" ? p.epcLabel : null;
   const labelPhrase = copy.epcLabelPhrase(label);
@@ -396,6 +474,11 @@ export function buildIndexationTemplateVars(params: IndexationEmailParams): Reco
     params.appliedNewRent < params.calculatedNewRent ? copy.rounding(applied) : "";
   const signing = params.signingDate ? formatLongDate(params.signingDate, lang) : null;
   const start = formatLongDate(params.startDate, lang);
+  // Wallonia after the 2022-2023 window: the adapted rent and its index are the base.
+  const walloniaBase = walloniaBaseInUse(params);
+  const baseRent = walloniaBase ? walloniaBase.rent : params.baseRent;
+  const baseIndex = walloniaBase ? walloniaBase.index : params.baseIndex;
+  const baseIndexMonth = walloniaBase ? walloniaBase.month : params.baseIndexMonth;
 
   return {
     tenantName: params.tenantName,
@@ -405,11 +488,11 @@ export function buildIndexationTemplateVars(params: IndexationEmailParams): Reco
     startDate: start,
     leaseReference: copy.leaseReference(signing, start),
     healthIndexSentence: copy.healthIndexSentence,
-    baseIndexMonth: formatMonthYear(params.baseIndexMonth, lang),
-    baseIndexValue: formatIndexValue(params.baseIndex),
+    baseIndexMonth: formatMonthYear(baseIndexMonth, lang),
+    baseIndexValue: formatIndexValue(baseIndex),
     currentIndexMonth: formatMonthYear(params.currentIndexMonth, lang),
     currentIndexValue: formatIndexValue(params.currentIndex),
-    baseRent: formatEur(params.baseRent),
+    baseRent: formatEur(baseRent),
     unrestrictedNewRent: formatEur(params.unrestrictedNewRent),
     epcParagraph: epcParagraph(params, copy, lang),
     calculatedNewRent: formatEur(params.calculatedNewRent),
@@ -424,7 +507,7 @@ export function buildIndexationTemplateVars(params: IndexationEmailParams): Reco
     // Legacy keys
     currentRent: formatEur(params.baseRent),
     newRent: applied,
-    baseIndex: formatIndexValue(params.baseIndex),
+    baseIndex: formatIndexValue(baseIndex),
     currentIndex: formatIndexValue(params.currentIndex),
     overrideNote: roundingSentence,
   };

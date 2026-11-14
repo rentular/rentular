@@ -29,6 +29,7 @@ import {
 } from "../lib/propertyAccess";
 import type { PropertyManagerRole } from "@rentular/shared";
 import { computeIndexReferenceMonth } from "@rentular/shared/validation";
+import { WALLONIA_PEB_LABELS } from "../services/indexationCalc";
 
 const db = getDb();
 
@@ -70,6 +71,13 @@ const createLeaseSchema = z.object({
   landlordLateNotify: z.boolean().optional().default(true),
   // The lease is registered (required for indexation in Brussels).
   leaseRegistered: z.boolean().optional().default(false),
+  // Wallonia: PEB label from 1 November 2022 to 31 October 2023, when it differs
+  // from the property's current label. Empty clears it.
+  walloniaPebLabel2022: z
+    .union([z.enum(WALLONIA_PEB_LABELS), z.literal("")])
+    .nullable()
+    .optional()
+    .transform((v) => (v === "" ? null : v)),
   priorPaymentsSettled: z.boolean().optional().default(true),
   paymentDay: z.number().int().min(1).max(28).optional().default(1),
 });
@@ -220,6 +228,7 @@ leasesRouter.post("/",zValidator("json", createLeaseSchema), async (c) => {
     indexationEnabled: leaseType === "student" ? false : data.indexationEnabled,
     landlordLateNotify: data.landlordLateNotify,
     leaseRegistered: data.leaseRegistered,
+    walloniaPebLabel2022: data.walloniaPebLabel2022 ?? null,
     priorPaymentsSettled: data.priorPaymentsSettled,
     paymentDay: data.paymentDay,
   });
@@ -293,6 +302,25 @@ leasesRouter.put("/:id", zValidator("json", createLeaseSchema.partial()), async 
   if (data.indexationEnabled !== undefined) updates.indexationEnabled = data.indexationEnabled;
   if (data.landlordLateNotify !== undefined) updates.landlordLateNotify = data.landlordLateNotify;
   if (data.leaseRegistered !== undefined) updates.leaseRegistered = data.leaseRegistered;
+
+  // Wallonia: the stored adapted rent was computed from the 2022-2023 PEB label,
+  // the start date, the contract rent and the base index. When the landlord
+  // corrects one of them, drop it so the next calculation uses the new data.
+  const prev = existing[0];
+  const labelChanged =
+    data.walloniaPebLabel2022 !== undefined &&
+    (data.walloniaPebLabel2022 ?? null) !== (prev.walloniaPebLabel2022 ?? null);
+  if (labelChanged) updates.walloniaPebLabel2022 = data.walloniaPebLabel2022 ?? null;
+  const baseChanged =
+    labelChanged ||
+    (data.startDate !== undefined && data.startDate !== prev.startDate) ||
+    (data.baseRent !== undefined && Number(data.baseRent) !== Number(prev.baseRent ?? prev.monthlyRent)) ||
+    (data.indexationBaseIndex !== undefined && Number(data.indexationBaseIndex) !== Number(prev.indexationBaseIndex));
+  if (baseChanged && prev.walloniaAdaptedRent != null) {
+    updates.walloniaAdaptedRent = null;
+    updates.walloniaAdaptedIndex = null;
+    updates.walloniaAdaptedIndexMonth = null;
+  }
   if (data.priorPaymentsSettled !== undefined) updates.priorPaymentsSettled = data.priorPaymentsSettled;
   if (data.paymentDay !== undefined) updates.paymentDay = data.paymentDay;
 

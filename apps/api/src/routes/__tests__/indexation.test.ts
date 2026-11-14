@@ -105,11 +105,20 @@ const core = {
 };
 
 const computeIndexationCore = vi.fn(async (): Promise<Record<string, unknown>> => ({ ...core }));
-vi.mock("../../services/indexationCalc", () => ({
-  computeIndexationCore: () => computeIndexationCore(),
-  localYmd: (d: Date) =>
-    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`,
-}));
+const computeArgs: Array<Record<string, unknown>> = [];
+vi.mock("../../services/indexationCalc", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../../services/indexationCalc")>();
+  return {
+    computeIndexationCore: (input: Record<string, unknown>) => {
+      computeArgs.push(input);
+      return computeIndexationCore();
+    },
+    localYmd: (d: Date) =>
+      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`,
+    walloniaInputsFromLease: actual.walloniaInputsFromLease,
+    walloniaColumnsToStore: actual.walloniaColumnsToStore,
+  };
+});
 
 const generateDefaultIndexationEmail = vi.fn((_params: { effectiveDate: string }) => ({
   subject: "s",
@@ -215,6 +224,7 @@ beforeEach(() => {
   selectQueue.length = 0;
   insertValues.length = 0;
   updateSets.length = 0;
+  computeArgs.length = 0;
   generateDefaultIndexationEmail.mockClear();
   queueEmail.mockClear();
   computeIndexationCore.mockReset();
@@ -376,6 +386,102 @@ describe("apply waits for the legal index month", () => {
     expect(res.status).toBe(400);
     expect(((await res.json()) as { error: string }).error).toContain("2026-04");
     expect(insertValues).toHaveLength(0);
+    expect(updateSets).toHaveLength(0);
+  });
+});
+
+describe("Walloon PEB base on apply", () => {
+  const walLease = {
+    ...leaseRow,
+    region: "wallonia",
+    startDate: "2021-11-01",
+    indexationBaseIndex: "112.74",
+    baseRent: "600.00",
+    monthlyRent: "600.00",
+    walloniaPebLabel2022: null,
+    walloniaAdaptedRent: null,
+    walloniaAdaptedIndex: null,
+    walloniaAdaptedIndexMonth: null,
+  };
+  const wallonia = {
+    label: "D",
+    labelSource: "property",
+    share: 0.75,
+    windowAnniversary: "2022-11-01",
+    phase: "after",
+    adaptedRent: 660.59,
+    adaptedIndex: 127.92,
+    adaptedIndexMonth: "2022-10",
+    rentDueBefore: 600,
+    indexedAtWindow: 680.79,
+    fromLease: false,
+    missingIndexMonth: null,
+  };
+  const adapted = { ...core, newRent: 662.55, unrestrictedNewRent: 682.81, epcRestricted: true, wallonia, indexationBlocked: null };
+  const body = { ...applyBody, newRent: 662.55 };
+
+  it("stores the PEB label and the adapted rent the first time", async () => {
+    computeIndexationCore.mockImplementation(async () => ({ ...adapted }));
+    const app = await buildApp();
+    selectQueue.push([walLease], [propertyRow], [ownerRow]);
+    const res = await post(app, "/indexation/apply/lease-1", body);
+    expect(res.status).toBe(200);
+    expect(updateSets[0]).toMatchObject({
+      walloniaPebLabel2022: "D",
+      walloniaAdaptedRent: "660.59",
+      walloniaAdaptedIndex: "127.92",
+      walloniaAdaptedIndexMonth: "2022-10",
+    });
+  });
+
+  it("passes the stored values to the calculation and does not overwrite them", async () => {
+    computeIndexationCore.mockImplementation(async () => ({ ...adapted, wallonia: { ...wallonia, fromLease: true } }));
+    const app = await buildApp();
+    const stored = {
+      ...walLease,
+      walloniaPebLabel2022: "D",
+      walloniaAdaptedRent: "660.59",
+      walloniaAdaptedIndex: "127.92",
+      walloniaAdaptedIndexMonth: "2022-10",
+    };
+    selectQueue.push([stored], [propertyRow], [ownerRow]);
+    const res = await post(app, "/indexation/apply/lease-1", body);
+    expect(res.status).toBe(200);
+    expect(computeArgs[0]).toMatchObject({
+      walloniaPebLabel2022: "D",
+      walloniaAdaptedRent: 660.59,
+      walloniaAdaptedIndex: 127.92,
+      walloniaAdaptedIndexMonth: "2022-10",
+    });
+    expect(updateSets[0]).not.toHaveProperty("walloniaAdaptedRent");
+    expect(updateSets[0]).not.toHaveProperty("walloniaPebLabel2022");
+  });
+
+  it("stores only the label when the label allowed full indexation", async () => {
+    computeIndexationCore.mockImplementation(async () => ({
+      ...core,
+      wallonia: { ...wallonia, label: "C", share: 1, adaptedRent: null, adaptedIndex: null },
+    }));
+    const app = await buildApp();
+    selectQueue.push([walLease], [propertyRow], [ownerRow]);
+    const res = await post(app, "/indexation/apply/lease-1", applyBody);
+    expect(res.status).toBe(200);
+    expect(updateSets[0]).toMatchObject({ walloniaPebLabel2022: "C" });
+    expect(updateSets[0]).not.toHaveProperty("walloniaAdaptedRent");
+  });
+
+  it("refuses to apply when an index for the Walloon base is missing", async () => {
+    computeIndexationCore.mockImplementation(async () => ({
+      ...core,
+      newRent: 600,
+      wallonia: { ...wallonia, adaptedRent: null, adaptedIndex: null, missingIndexMonth: "2022-10" },
+      indexationBlocked: "wallonia_index_missing",
+    }));
+    const app = await buildApp();
+    selectQueue.push([walLease], [propertyRow], [ownerRow]);
+    const res = await post(app, "/indexation/apply/lease-1", { ...applyBody, newRent: 600 });
+    expect(res.status).toBe(400);
+    expect(((await res.json()) as { error: string }).error).toContain("Walloon");
     expect(updateSets).toHaveLength(0);
   });
 });
