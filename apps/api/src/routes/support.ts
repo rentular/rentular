@@ -121,7 +121,7 @@ supportRouter.post(
       lowerMessage.includes("direct debit")
     ) {
       reply =
-        "SEPA direct debit via GoCardless is available on all hosted plans. To set it up, go to a lease and click 'Set up direct debit'. The tenant will receive a link to authorise the mandate.";
+        "SEPA direct debit runs through your own GoCardless account, so the rent goes straight to you. First connect it in Settings, GoCardless tab (you can create a GoCardless account along the way). Then go to a lease and click 'Set up direct debit'. The tenant will receive a link to authorise the mandate.";
     } else if (
       lowerMessage.includes("indexat") ||
       lowerMessage.includes("index") ||
