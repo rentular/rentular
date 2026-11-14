@@ -40,3 +40,4 @@ application_228c5f9c-*/
 
 # Claude Code agent worktrees (local only)
 .claude/worktrees/
+e2e/artifacts/

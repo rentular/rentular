@@ -1,0 +1,23 @@
+{
+  "name": "@rentular/e2e",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Browser tests for Rentular (focus retention sweep and smoke flows), run against a local or isolated stack",
+  "scripts": {
+    "seed": "tsx src/seed.ts",
+    "test": "tsx src/run.ts",
+    "lint": "tsc --noEmit"
+  },
+  "dependencies": {
+    "bcrypt": "^5.1.0",
+    "mysql2": "^3.24.4",
+    "playwright": "^1.58.2"
+  },
+  "devDependencies": {
+    "@types/bcrypt": "^5.0.0",
+    "@types/node": "^22.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.5.0"
+  }
+}
