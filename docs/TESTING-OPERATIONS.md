@@ -94,7 +94,7 @@ E2E_PROJECTS=chromium-desktop E2E_REPORT_ROOT=~/reports e2e/run-compose.sh
 At the end you see a line like:
 
 ```
-86 passed, 0 failed, 0 skipped, 480 fields typed into
+88 passed, 0 failed, 0 skipped, 480 fields typed into
 ```
 
 - **0 failed**: all good. The command ends with exit code 0.

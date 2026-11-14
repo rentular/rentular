@@ -25,10 +25,10 @@ x-app-env: &app-env
   SMTP_PORT: "1025"
   EMAIL_FROM: noreply@e2e.local
   AUTH_SECRET: ${E2E_AUTH_SECRET:?run e2e/run-compose.sh}
-  AUTH_URL: http://app:8080
+  AUTH_URL: http://rentular.test:8080
   AUTH_TRUST_HOST: "true"
-  WEB_URL: http://app:8080
-  ALLOWED_ORIGINS: http://app:8080
+  WEB_URL: http://rentular.test:8080
+  ALLOWED_ORIGINS: http://rentular.test:8080
   APP_TIMEZONE: Europe/Brussels
   SMS_PROVIDER: console
 
@@ -99,7 +99,7 @@ services:
       dockerfile: apps/web/Dockerfile
       args:
         # The browser reaches the API through the proxy below; the app adds /api/v1.
-        NEXT_PUBLIC_API_URL: http://app:8080
+        NEXT_PUBLIC_API_URL: http://rentular.test:8080
     networks: [e2e]
     environment:
       <<: *app-env
@@ -113,9 +113,13 @@ services:
 
   # One origin for web and API, like the production reverse proxy, so the
   # session cookie reaches both.
+  # The browsers use the dotted name: WebKit on Linux does not keep cookies
+  # for a single-label host such as "app", so sign-in would not stick.
   app:
     image: caddy:2
-    networks: [e2e]
+    networks:
+      e2e:
+        aliases: [rentular.test]
     command: ["caddy", "run", "--config", "/etc/caddy/Caddyfile", "--adapter", "caddyfile"]
     volumes:
       - ./proxy/Caddyfile:/etc/caddy/Caddyfile:ro
@@ -132,8 +136,8 @@ services:
     user: "${E2E_UID:-1001}:${E2E_GID:-1001}"
     environment:
       HOME: /tmp
-      E2E_BASE_URL: http://app:8080
-      E2E_API_URL: http://app:8080/api/v1
+      E2E_BASE_URL: http://rentular.test:8080
+      E2E_API_URL: http://rentular.test:8080/api/v1
       E2E_DB_HOST: mariadb
       E2E_DB_PORT: "3306"
       E2E_DB_PASSWORD: ${E2E_DB_PASSWORD:?run e2e/run-compose.sh}

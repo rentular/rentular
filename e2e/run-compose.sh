@@ -25,6 +25,9 @@ REPORT_ROOT="${E2E_REPORT_ROOT:-$E2E_DIR/artifacts}"
 STAMP="$(date +%Y-%m-%dT%H-%M-%S)"
 export E2E_REPORT_DIR="$REPORT_ROOT/$STAMP"
 mkdir -p "$E2E_REPORT_DIR"
+# The runner writes here under its own user id; Docker Desktop and rootless
+# Podman can map that to an id that does not own the folder.
+chmod a+rwx "$E2E_REPORT_DIR"
 export E2E_UID="${E2E_UID:-$(id -u)}" E2E_GID="${E2E_GID:-$(id -g)}"
 
 # Keep the last E2E_KEEP_DAYS days of reports.
@@ -53,6 +56,6 @@ set +e
   >"$E2E_REPORT_DIR/run.log" 2>&1
 RESULT=$?
 set -e
-grep -E '^runner-1  \| ' "$E2E_REPORT_DIR/run.log" | sed 's/^runner-1  | //' || true
-[ -f "$E2E_REPORT_DIR/summary.txt" ] || { log "no test report was written, see run.log"; [ "$RESULT" -eq 0 ] && RESULT=2; }
+grep -E '^runner-1 +[|] ' "$E2E_REPORT_DIR/run.log" | sed -E 's/^runner-1 +[|] //' || true
+[ -f "$E2E_REPORT_DIR/summary.txt" ] || { log "no test report was written, see run.log"; RESULT=2; }
 exit "$RESULT"

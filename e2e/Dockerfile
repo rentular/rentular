@@ -12,9 +12,14 @@ ENV CI=1 \
     PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 \
     PNPM_HOME=/pnpm \
     PATH=/pnpm:$PATH \
-    NEXT_TELEMETRY_DISABLED=1
+    NEXT_TELEMETRY_DISABLED=1 \
+    COREPACK_HOME=/opt/corepack
 
-RUN corepack enable && corepack prepare pnpm@9.15.0 --activate
+# pnpm is fetched once here, into a shared folder: the runner joins an
+# internal network without internet and may run under any user id.
+RUN corepack enable && corepack prepare pnpm@9.15.0 --activate \
+    && chmod -R a+rX /opt/corepack
+ENV COREPACK_ENABLE_NETWORK=0
 
 WORKDIR /repo
 COPY . .
