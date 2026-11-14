@@ -2,7 +2,7 @@ import { z } from "zod";
 import type { ApiClient, ApiResult, ToolDef } from "./types.js";
 import { textResult } from "./types.js";
 
-// Four write tools mapped to the hardened manager+ POST endpoints. Each tool
+// Five write tools mapped to the hardened manager+ POST endpoints. Each tool
 // relays the API response verbatim; it never self-authorizes. The API returns
 // 403 for a viewer or a read-scoped token, and we make that refusal explicit so
 // the model explains it instead of retrying. inputSchema values are zod RAW
@@ -47,6 +47,20 @@ export const writeTools: ToolDef[] = [
         month: args.month,
         method: args.method,
         date: args.date,
+      }),
+  },
+  {
+    name: "unmark_rent_paid",
+    description:
+      "Requires a write-scoped token and manager or higher on the property. Undo the latest manual paid mark of a lease for a month (YYYY-MM), as made by mark_rent_paid, the overview or the landlord email link. The payment goes back exactly to how it was before the mark (a record the mark created is removed), so reminders and the dashboard behave as if it never happened. Refused (409) when the payment has since been matched to a bank transaction, got ledger allocations or was changed; the response says why. Undoing a mark that is already undone returns already: true.",
+    inputSchema: {
+      leaseId: z.string().min(1),
+      month: monthShape,
+    },
+    handler: async (args, api) =>
+      postWrite(api, "/payments/unmark-month-paid", "unmark_rent_paid", {
+        leaseId: args.leaseId,
+        month: args.month,
       }),
   },
   {

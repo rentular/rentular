@@ -45,9 +45,9 @@ describe("tool registry shape", () => {
     );
   });
 
-  it("exposes exactly the four write tools from CONTEXT", () => {
+  it("exposes exactly the five write tools", () => {
     expect(writeTools.map((t) => t.name).sort()).toEqual(
-      ["apply_indexation", "mark_rent_paid", "record_ledger_payment", "send_reminder"].sort(),
+      ["apply_indexation", "mark_rent_paid", "record_ledger_payment", "send_reminder", "unmark_rent_paid"].sort(),
     );
   });
 });
@@ -100,6 +100,20 @@ describe("write tool -> endpoint map", () => {
     expect(calls[0].path).toBe("/payments/mark-month-paid");
     expect(calls[0].tool).toBe("mark_rent_paid");
     expect(calls[0].body).toMatchObject({ leaseId: "l1", month: "2026-01", method: "cash" });
+  });
+
+  it("unmark_rent_paid posts to /payments/unmark-month-paid", async () => {
+    const tool = writeTools.find((t) => t.name === "unmark_rent_paid")!;
+    const { api, calls } = fakeApi(OK);
+    await tool.handler(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      { leaseId: "l1", month: "2026-11" } as any,
+      api,
+    );
+    expect(calls[0].method).toBe("POST");
+    expect(calls[0].path).toBe("/payments/unmark-month-paid");
+    expect(calls[0].tool).toBe("unmark_rent_paid");
+    expect(calls[0].body).toEqual({ leaseId: "l1", month: "2026-11" });
   });
 
   it("send_reminder posts to /payments/send-reminder", async () => {
