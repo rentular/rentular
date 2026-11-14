@@ -14,7 +14,9 @@ import {
   getIndexationApplicability,
   brusselsAnniversaryPeriod,
   isBrusselsLabelBetterThanE,
+  applyFlandersEpcRestriction,
 } from "../indexationCalc";
+import { FLANDERS_FUTURE_BAN_IN_FORCE } from "@rentular/shared/constants";
 import { alertCycleDate } from "../indexationAlerts";
 
 describe("getIndexationApplicability", () => {
@@ -157,13 +159,18 @@ describe("computeIndexationCore: Flemish EPC correction after the freeze", () =>
     expect(r.correctionApplied).toBe(false);
   });
 
-  it("leaves Wallonia unchanged", async () => {
+  it("does not apply the Flemish factor in Wallonia (the Walloon PEB rule applies instead)", async () => {
     vi.setSystemTime(new Date("2026-06-01T12:00:00Z"));
-    mockIndices({ "2026-04": 139.33 });
+    // Statbel health index, base 2013.
+    mockIndices({ "2022-04": 119.59, "2023-04": 126.7, "2026-04": 139.33 });
     const r = await computeIndexationCore({ ...realLease, region: "wallonia" });
-    expect(r.newRent).toBe(862.98);
+    expect(r.unrestrictedNewRent).toBe(862.98);
     expect(r.correctionApplied).toBe(false);
     expect(r.correctionMonth).toBeNull();
+    // EPC E, anniversary 1 May 2023: 740.72 due + 50% x (784.75 - 740.72) = 762.74,
+    // then 762.74 x 139.33 / 126.70.
+    expect(r.wallonia?.adaptedRent).toBe(762.74);
+    expect(r.newRent).toBe(838.77);
   });
 
   it("keeps the freeze-period rule (EPC D gets 50% of the increase)", async () => {
@@ -172,6 +179,63 @@ describe("computeIndexationCore: Flemish EPC correction after the freeze", () =>
     const r = await computeIndexationCore({ ...realLease, epcLabel: "D" });
     expect(r.newRent).toBe(round2(675 + (r.unrestrictedNewRent - 675) * 0.5));
     expect(r.correctionApplied).toBe(false);
+  });
+});
+
+// The 2028 Flemish indexation ban is announced in the coalition agreement but
+// not voted: the calculation must not enforce it, only report it.
+describe("Flanders announced 2028 ban (not law)", () => {
+  afterEach(() => {
+    vi.mocked(getHealthIndexValue).mockReset();
+    vi.mocked(getLatestHealthIndex).mockReset();
+  });
+
+  it("is not in force", () => {
+    expect(FLANDERS_FUTURE_BAN_IN_FORCE).toBe(false);
+  });
+
+  it("indexes a 2028 EPC E lease normally and carries the notice", async () => {
+    mockIndices({ "2028-04": 150 });
+    const r = await computeIndexationCore({
+      baseRent: 800,
+      baseIndex: 128,
+      region: "flanders",
+      startDate: "2024-05-01",
+      epcLabel: "E",
+      leaseType: "residential_long",
+      today: new Date(2028, 5, 1),
+    });
+    expect(r.newRent).toBe(937.5);
+    expect(r.newRent).toBe(r.unrestrictedNewRent);
+    expect(r.epcRestricted).toBe(false);
+    expect(r.announcedRestriction).toEqual({ fromYear: 2028, labels: ["E", "F"], inForce: false });
+  });
+
+  it("keeps the existing correction factor for an older EPC E lease in 2028", async () => {
+    mockIndices({ "2028-04": 150 });
+    const r = await computeIndexationCore({ ...realLease, today: new Date(2028, 5, 1) });
+    // 675 x 150 / 108.98 = 929.07, x May factor 0.943883189 = 876.93
+    expect(r.unrestrictedNewRent).toBe(929.07);
+    expect(r.newRent).toBe(876.93);
+    expect(r.correctionApplied).toBe(true);
+    expect(r.announcedRestriction?.fromYear).toBe(2028);
+  });
+
+  it("carries no notice for other labels, regions or student leases", async () => {
+    mockIndices({ "2026-04": 139.33 });
+    const base = { ...realLease, startDate: "2024-05-01", today: new Date(2026, 5, 1) };
+    expect((await computeIndexationCore({ ...base, epcLabel: "D" })).announcedRestriction).toBeNull();
+    expect((await computeIndexationCore({ ...base, epcLabel: "G" })).announcedRestriction).toBeNull();
+    expect((await computeIndexationCore({ ...base, region: "brussels", leaseRegistered: true })).announcedRestriction).toBeNull();
+    expect((await computeIndexationCore({ ...base, leaseType: "student" })).announcedRestriction).toBeNull();
+    expect((await computeIndexationCore({ ...base, leaseType: "commercial" })).announcedRestriction).toBeNull();
+  });
+
+  it("would stop indexation only once switched on by a decree", () => {
+    const on = applyFlandersEpcRestriction(675, 929.07, "E", "2019-05-01", "2028-05-01", "residential_long", true);
+    expect(on.newRent).toBe(675);
+    const off = applyFlandersEpcRestriction(675, 929.07, "E", "2019-05-01", "2028-05-01", "residential_long", false);
+    expect(off.newRent).toBe(876.93);
   });
 });
 

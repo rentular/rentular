@@ -12,7 +12,7 @@ import type { PropertyManagerRole } from "@rentular/shared";
 import { hasMinimumRole } from "../lib/propertyAccess";
 import { isWhatsAppConfigured, sendWhatsApp } from "../lib/whatsapp";
 import { queueEmail } from "../jobs/emailQueueWorker";
-import { computeIndexationCore, localYmd } from "./indexationCalc";
+import { computeIndexationCore, localYmd, walloniaInputsFromLease } from "./indexationCalc";
 import { formatEur } from "../lib/belgianFormat";
 import {
   normaliseSnoozeLang,
@@ -510,6 +510,7 @@ export async function runIndexationAlerts(now: Date = new Date()): Promise<Index
         brusselsEpcFactor: lease.brusselsEpcFactor != null ? Number(lease.brusselsEpcFactor) : null,
         leaseRegistered: lease.leaseRegistered,
         currentRent: Number(lease.monthlyRent),
+        ...walloniaInputsFromLease(lease),
       });
       if (!isAlertDue(lease, core)) continue;
       const cycle = alertCycleDate(lease.startDate, core.applicableFrom);

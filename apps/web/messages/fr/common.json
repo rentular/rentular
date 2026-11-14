@@ -296,7 +296,11 @@
     "priorPaymentsSettledHelp": "Ce contrat a commencé avant son ajout ici. Laissez cette option activée si la garantie et les loyers jusqu'à présent ont déjà été payés, pour que rien d'antérieur ne soit considéré comme ouvert.",
     "communication": "Communication",
     "leaseRegistered": "Bail enregistré",
-    "leaseRegisteredDescription": "À Bruxelles, le loyer d'un bail non enregistré ne peut pas être indexé."
+    "leaseRegisteredDescription": "À Bruxelles, le loyer d'un bail non enregistré ne peut pas être indexé.",
+    "walloniaPebLabel2022": "Label PEB de novembre 2022 à octobre 2023",
+    "walloniaPebLabel2022Description": "Règle wallonne : le label de cette période fixe la base d'indexation jusqu'à la fin du bail. À remplir uniquement si le label a changé depuis.",
+    "walloniaPebSameAsProperty": "Identique au label actuel du bien",
+    "walloniaPebNone": "Pas de certificat PEB"
   },
   "indexation": {
     "title": "Indexation des loyers",
@@ -1918,5 +1922,18 @@
     "periodMonth": "en {month}",
     "period10a": "du 1er au 13 octobre",
     "period10b": "du 14 au 31 octobre"
+  },
+  "walloniaPeb": {
+    "baseAdapted": "Règle wallonne : loyer de base {rent} (loyer adapté PEB {label}, {month}), indice de départ {index}.",
+    "baseStored": "Enregistré sur ce contrat lors d'une indexation précédente ; reste la base jusqu'à la fin du bail.",
+    "window": "Règle wallonne : PEB {label} pendant la période 2022-2023, {share} de l'indexation. Loyer adapté {rent}.",
+    "fullAllowed": "Règle wallonne : PEB {label} de novembre 2022 à octobre 2023, indexation complète.",
+    "indexMissing": "L'indice santé de {month} est nécessaire pour la règle PEB wallonne de 2022-2023 et il manque. L'indexation attend qu'il soit disponible.",
+    "none": "aucun",
+    "sharePct": "{pct} %"
+  },
+  "flandersAnnounced": {
+    "notice": "Annoncé par le gouvernement flamand : à partir de {year}, peut-être plus d'indexation pour le label PEB {labels}. Ce n'est pas encore une loi ; Rentular ne l'appliquera qu'une fois le décret voté.",
+    "or": "ou"
   }
 }

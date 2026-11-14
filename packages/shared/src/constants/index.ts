@@ -294,8 +294,7 @@ export const DEFAULT_SMS_TEMPLATES: Record<SupportedLanguage, {
 };
 
 // === EPC-BASED INDEXATION RESTRICTIONS ===
-// Both Brussels and Flanders have EPC-based restrictions on rent indexation.
-// Wallonia currently has no EPC-based indexation restrictions.
+// Brussels, Flanders and Wallonia each have their own EPC-based restriction.
 
 // Brussels: correction factor (Brussels Housing Code art. 224/2, ordinance of
 // 13 October 2023). Source, verified digit for digit on 2026-11-14:
@@ -339,6 +338,36 @@ export const BRUSSELS_EPC_CORRECTION_FACTORS: Record<BrusselsAnniversaryPeriod, 
 
 // EPB labels that need the Brussels correction factor.
 export const BRUSSELS_EPC_CORRECTED_LABELS: readonly string[] = ["E", "F", "G"];
+
+// Wallonia: PEB limitation of the decree of 19 October 2022. Source, read on
+// 2026-11-14: https://logement.wallonie.be/fr/bail/indexation-loyer
+// An indexation whose anniversary (of the date the lease took effect) falls
+// from 1 November 2022 to 31 October 2023 may only claim part of the increase:
+// PEB A, B or C in full, D 75%, E 50%, F, G or no certificate nothing. The
+// increase is the indexed rent at that anniversary minus the rent due before it
+// (the rent indexed for the previous year, even if that indexation was never
+// asked). For PEB D to G or without a certificate, the result is the "loyer
+// adapté PEB": until the lease ends, every later indexation uses it as the base
+// rent, with the health index of the month before that anniversary as the base
+// index. The lost part is never recovered. Leases that took effect after
+// 31 October 2022 are not affected.
+export const WALLONIA_PEB_WINDOW_START = "2022-11-01";
+export const WALLONIA_PEB_WINDOW_END = "2023-10-31";
+
+// Share of the increase that may be claimed in the window, per PEB label.
+// Unknown labels are treated like no certificate.
+export const WALLONIA_PEB_INDEXATION_SHARE: Record<string, number> = {
+  "A++": 1,
+  "A+": 1,
+  A: 1,
+  B: 1,
+  C: 1,
+  D: 0.75,
+  E: 0.5,
+  F: 0,
+  G: 0,
+  none: 0,
+};
 
 // Flanders: temporary freeze + permanent correction factor
 // Only applies to residential leases (NOT student leases) started BEFORE Oct 1, 2022
@@ -404,13 +433,20 @@ export const FLANDERS_EPC_CORRECTION_FACTORS: Record<number, { d: number; efNone
   12: { d: 0.951977401, efNone: 0.903954802 },
 };
 
-// Future Flanders restrictions:
-// From 2028: E and F labels completely banned from indexation
-// From 2030: further restrictions (details TBD by Flemish government)
-export const FLANDERS_FUTURE_RESTRICTIONS = {
-  2028: { bannedLabels: ["E", "F"] as readonly string[] },
-  2030: { bannedLabels: ["D", "E", "F"] as readonly string[] },
-} as const;
+// Flanders, ANNOUNCED, NOT LAW. The Flemish coalition agreement 2024-2029
+// announces that the rent of homes with EPC label E or F may no longer be
+// indexed from 2028. No decree has been voted, and sources disagree on the
+// content (E and F, or a minimum label D). The 2030 measure some sources
+// mention is a ban on renting out E and F homes, not an indexation ban, so it
+// is not listed here. Rentular only shows a notice for affected leases.
+// When a decree is published: verify the exact labels, dates and which leases
+// it covers against the decree text, update FLANDERS_FUTURE_RESTRICTIONS, then
+// set FLANDERS_FUTURE_BAN_IN_FORCE to true so the calculation enforces it.
+export const FLANDERS_FUTURE_BAN_IN_FORCE: boolean = false;
+
+export const FLANDERS_FUTURE_RESTRICTIONS: Record<number, { bannedLabels: readonly string[] }> = {
+  2028: { bannedLabels: ["E", "F"] },
+};
 
 // EPC scores ordered from best to worst
 export const EPC_SCORES = ["A++", "A+", "A", "B", "C", "D", "E", "F", "G"] as const;

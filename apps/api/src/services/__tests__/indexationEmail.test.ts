@@ -293,3 +293,110 @@ describe("Brussels correction factor in the letter", () => {
     );
   });
 });
+
+describe("Walloon PEB rule in the letter", () => {
+  // Official example: rent 600, in force November 2021, PEB D. Adapted rent
+  // 660.59 (index October 2022 127.92), November 2023: 660.59 x 128.30 / 127.92 = 662.55.
+  const wallonia = (overrides: Partial<IndexationEmailParams> = {}) =>
+    reference({
+      region: "wallonia",
+      signingDate: "2021-09-15",
+      startDate: "2021-11-01",
+      baseRent: 600,
+      baseIndex: 112.74,
+      baseIndexMonth: "2021-08",
+      currentIndex: 128.3,
+      currentIndexMonth: "2023-10",
+      unrestrictedNewRent: 682.81,
+      calculatedNewRent: 662.55,
+      appliedNewRent: 662.55,
+      effectiveDate: "2023-11-01",
+      epcLabel: "B",
+      epcRestricted: true,
+      correctionApplied: false,
+      correctionMonth: null,
+      epcIndexationFactor: 0.75,
+      wallonia: {
+        label: "D",
+        labelSource: "lease",
+        share: 0.75,
+        windowAnniversary: "2022-11-01",
+        phase: "after",
+        adaptedRent: 660.59,
+        adaptedIndex: 127.92,
+        adaptedIndexMonth: "2022-10",
+        rentDueBefore: null,
+        indexedAtWindow: null,
+        fromLease: true,
+        missingIndexMonth: null,
+      },
+      ...overrides,
+    });
+
+  it("uses the adapted rent and its index as the base, in French", () => {
+    const { body } = generateDefaultIndexationEmail(wallonia({ tenantLanguage: "fr" }));
+    expect(body).toContain("Le loyer de base s'élève à € 660,59.");
+    expect(body).toContain("s'élève à 127,92");
+    expect(body).toContain("décret wallon du 19 octobre 2022");
+    expect(body).toContain("PEB D : 75 % de l'indexation");
+    expect(body).toContain("€ 660,59 × 128,30 / 127,92 = € 662,55");
+    expect(body).toContain("Le nouveau loyer s'élève donc à € 662,55.");
+    expect(body).not.toContain("€ 600,00");
+  });
+
+  it("explains it in Dutch, English and German", () => {
+    const nl = generateDefaultIndexationEmail(wallonia()).body;
+    expect(nl).toContain("Waalse decreet van 19 oktober 2022");
+    expect(nl).toContain("De basishuur bedraagt € 660,59.");
+    const en = generateDefaultIndexationEmail(wallonia({ tenantLanguage: "en" })).body;
+    expect(en).toContain("Walloon decree of 19 October 2022");
+    expect(en).toContain("PEB D: 75% of the increase");
+    const de = generateDefaultIndexationEmail(wallonia({ tenantLanguage: "de" })).body;
+    expect(de).toContain("wallonische Dekret vom 19. Oktober 2022");
+    expect(de).toContain("Die Basismiete beträgt € 660,59.");
+  });
+
+  it("names a missing certificate", () => {
+    const body = generateDefaultIndexationEmail(
+      wallonia({
+        tenantLanguage: "fr",
+        calculatedNewRent: 601.78,
+        appliedNewRent: 601.78,
+        wallonia: { ...wallonia().wallonia!, label: "none", share: 0, adaptedRent: 600 },
+      })
+    ).body;
+    expect(body).toContain("pas de certificat PEB : pas d'indexation");
+    expect(body).toContain("€ 600,00 × 128,30 / 127,92 = € 601,78");
+  });
+
+  it("shows the window computation from the rent due before the anniversary", () => {
+    // Official example: in force November 2019, PEB D, 1 November 2022.
+    const body = generateDefaultIndexationEmail(
+      wallonia({
+        tenantLanguage: "fr",
+        startDate: "2019-11-01",
+        currentIndex: 127.92,
+        calculatedNewRent: 684.47,
+        appliedNewRent: 684.47,
+        wallonia: {
+          ...wallonia().wallonia!,
+          phase: "window",
+          adaptedRent: 684.47,
+          rentDueBefore: 626.79,
+          indexedAtWindow: 703.69,
+          fromLease: false,
+        },
+      })
+    ).body;
+    expect(body).toContain("loyer dû avant cette date anniversaire, € 626,79");
+    expect(body).toContain("€ 626,79 + (€ 703,69 - € 626,79) × 0,75 = € 684,47");
+  });
+
+  it("leaves a Walloon lease outside the rule as a standard letter", () => {
+    const body = generateDefaultIndexationEmail(
+      wallonia({ wallonia: null, epcRestricted: false, calculatedNewRent: 682.81, appliedNewRent: 682.81 })
+    ).body;
+    expect(body).not.toContain("Waalse decreet");
+    expect(body).toContain("De basishuur bedraagt € 600,00.");
+  });
+});

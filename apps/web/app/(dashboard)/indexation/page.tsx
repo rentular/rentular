@@ -14,6 +14,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { epcBadgeClass } from "@/lib/epc";
 import { formatDate } from "@/lib/dateLocale";
 import { BrusselsEpcNote, type BrusselsEpcInfo } from "@/components/BrusselsEpcNote";
+import { WalloniaPebNote, type WalloniaPebInfo } from "@/components/WalloniaPebNote";
+import { FlandersAnnouncedNote, type FlandersAnnouncedRestriction } from "@/components/FlandersAnnouncedNote";
 import {
   Table,
   TableHeader,
@@ -82,6 +84,8 @@ interface CalcResult {
   correctionMonth?: number | null;
   formulaNote?: string;
   brussels?: BrusselsEpcInfo | null;
+  wallonia?: WalloniaPebInfo | null;
+  announcedRestriction?: FlandersAnnouncedRestriction | null;
   indexationBlocked?: string | null;
   latestIndex: number;
   latestIndexMonth: string;
@@ -846,7 +850,23 @@ export default function IndexationPage() {
                     </div>
                   )}
 
-                  {calc.region !== "brussels" && (calc.epcLabel || calc.correctionApplied) && calc.epcRestricted && (
+                  {calc.region === "wallonia" && calc.wallonia && (
+                    <div className="rounded-lg border p-4">
+                      <WalloniaPebNote
+                        wallonia={calc.wallonia}
+                        blocked={calc.indexationBlocked}
+                        className="text-sm"
+                      />
+                    </div>
+                  )}
+
+                  {calc.region === "flanders" && calc.announcedRestriction && (
+                    <div className="rounded-lg border p-4">
+                      <FlandersAnnouncedNote restriction={calc.announcedRestriction} className="text-sm" />
+                    </div>
+                  )}
+
+                  {calc.region === "flanders" && (calc.epcLabel || calc.correctionApplied) && calc.epcRestricted && (
                     <div className="flex items-start gap-3 rounded-lg border border-orange-200 bg-orange-50 p-4 dark:border-orange-900 dark:bg-orange-950">
                       <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-orange-600" />
                       <div>
