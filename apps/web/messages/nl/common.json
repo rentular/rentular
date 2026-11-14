@@ -296,7 +296,11 @@
     "priorPaymentsSettledHelp": "Dit contract is gestart voor u het hier toevoegde. Laat dit aan staan als de waarborg en de huur tot nu al betaald zijn, zodat niets van vroeger als openstaand wordt beschouwd.",
     "communication": "Communicatie",
     "leaseRegistered": "Huurovereenkomst geregistreerd",
-    "leaseRegisteredDescription": "In Brussel mag de huur van een niet-geregistreerde huurovereenkomst niet geïndexeerd worden."
+    "leaseRegisteredDescription": "In Brussel mag de huur van een niet-geregistreerde huurovereenkomst niet geïndexeerd worden.",
+    "walloniaPebLabel2022": "PEB-label van november 2022 tot oktober 2023",
+    "walloniaPebLabel2022Description": "Waalse regel: het label van toen bepaalt de indexatiebasis voor de rest van de huur. Vul dit enkel in als het label sindsdien veranderd is.",
+    "walloniaPebSameAsProperty": "Zelfde als het huidige label van het pand",
+    "walloniaPebNone": "Geen PEB-certificaat"
   },
   "indexation": {
     "title": "Huurindexatie",
@@ -1918,5 +1922,18 @@
     "periodMonth": "in {month}",
     "period10a": "van 1 tot 13 oktober",
     "period10b": "van 14 tot 31 oktober"
+  },
+  "walloniaPeb": {
+    "baseAdapted": "Waalse regel: basishuur {rent} (aangepaste huur PEB {label}, {month}), basisindex {index}.",
+    "baseStored": "Vastgelegd op dit contract bij een vorige indexatie; blijft de basis tot het einde van de huur.",
+    "window": "Waalse regel: PEB {label} in de periode 2022-2023, {share} van de stijging. Aangepaste huur {rent}.",
+    "fullAllowed": "Waalse regel: PEB {label} van november 2022 tot oktober 2023, volledige indexatie.",
+    "indexMissing": "De gezondheidsindex van {month} is nodig voor de Waalse PEB-regel van 2022-2023 en ontbreekt. De indexatie wacht tot hij beschikbaar is.",
+    "none": "geen",
+    "sharePct": "{pct}%"
+  },
+  "flandersAnnounced": {
+    "notice": "Aangekondigd door de Vlaamse regering: vanaf {year} mogelijk geen indexatie meer voor EPC-label {labels}. Dit is nog geen wet; Rentular past het pas toe als het decreet gestemd is.",
+    "or": "of"
   }
 }

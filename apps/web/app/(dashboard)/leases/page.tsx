@@ -48,6 +48,8 @@ import { MandateSetupModal } from "@/components/MandateSetupModal";
 import { CancelMandateDialog } from "@/components/CancelMandateDialog";
 import LocaleDateInput from "@/components/LocaleDateInput";
 import { BrusselsEpcNote, type BrusselsEpcInfo } from "@/components/BrusselsEpcNote";
+import { WalloniaPebNote, type WalloniaPebInfo } from "@/components/WalloniaPebNote";
+import { FlandersAnnouncedNote, type FlandersAnnouncedRestriction } from "@/components/FlandersAnnouncedNote";
 import { formatDate } from "@/lib/dateLocale";
 
 interface Property {
@@ -88,6 +90,10 @@ interface Lease {
   landlordLateNotify?: boolean;
   leaseRegistered?: boolean;
   brusselsEpcFactor?: string | null;
+  walloniaPebLabel2022?: string | null;
+  walloniaAdaptedRent?: string | null;
+  walloniaAdaptedIndex?: string | null;
+  walloniaAdaptedIndexMonth?: string | null;
   priorPaymentsSettled?: boolean;
   paymentMethod?: string;
   gocardlessMandateId?: string;
@@ -117,6 +123,8 @@ export default function LeasesPage() {
   const [indexationEnabled, setIndexationEnabled] = useState(true);
   const [landlordLateNotify, setLandlordLateNotify] = useState(true);
   const [leaseRegistered, setLeaseRegistered] = useState(false);
+  // Wallonia: PEB label of November 2022 to October 2023, "" = the property's current label.
+  const [walloniaPebLabel2022, setWalloniaPebLabel2022] = useState("");
   const [priorPaymentsSettled, setPriorPaymentsSettled] = useState(true);
   const [baseRent, setBaseRent] = useState("");
   const [baseIndex, setBaseIndex] = useState("");
@@ -154,6 +162,8 @@ export default function LeasesPage() {
     monthsSinceEstimated?: number | null;
     yearPassed?: boolean | null;
     brussels?: BrusselsEpcInfo | null;
+    wallonia?: WalloniaPebInfo | null;
+    announcedRestriction?: FlandersAnnouncedRestriction | null;
     indexationBlocked?: string | null;
   } | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
@@ -196,6 +206,7 @@ export default function LeasesPage() {
     setSelectedTenants([]);
     setIndexationEnabled(true);
     setLeaseRegistered(false);
+    setWalloniaPebLabel2022("");
     setPaymentMethod(
       typeof window !== "undefined"
         ? localStorage.getItem("rentular_default_payment_method") || "bank_transfer"
@@ -213,6 +224,7 @@ export default function LeasesPage() {
     setIndexationEnabled(lease.indexationEnabled !== false);
     setLandlordLateNotify(lease.landlordLateNotify !== false);
     setLeaseRegistered(lease.leaseRegistered === true);
+    setWalloniaPebLabel2022(lease.walloniaPebLabel2022 ?? "");
     setPaymentMethod(lease.paymentMethod || "bank_transfer");
     setSelectedBankAccountId(lease.bankAccountId || "");
     setError("");
@@ -375,6 +387,23 @@ export default function LeasesPage() {
       if (lastIndexationDateState) params.set("lastIndexationDate", lastIndexationDateState);
       params.set("leaseRegistered", leaseRegistered ? "true" : "false");
       if (editingLease?.brusselsEpcFactor) params.set("brusselsEpcFactor", String(editingLease.brusselsEpcFactor));
+      if (regionState === "wallonia") {
+        if (walloniaPebLabel2022) params.set("walloniaPebLabel2022", walloniaPebLabel2022);
+        // A stored adapted rent only holds while the data it came from is unchanged
+        // (the API drops it on save otherwise).
+        const stored = editingLease;
+        const sameBase =
+          stored &&
+          (stored.walloniaPebLabel2022 ?? "") === walloniaPebLabel2022 &&
+          stored.startDate === startDateState &&
+          Number(stored.baseRent ?? stored.monthlyRent) === Number(baseRent) &&
+          Number(stored.indexationBaseIndex) === Number(baseIndex);
+        if (sameBase && stored.walloniaAdaptedRent && stored.walloniaAdaptedIndex) {
+          params.set("walloniaAdaptedRent", String(stored.walloniaAdaptedRent));
+          params.set("walloniaAdaptedIndex", String(stored.walloniaAdaptedIndex));
+          if (stored.walloniaAdaptedIndexMonth) params.set("walloniaAdaptedIndexMonth", stored.walloniaAdaptedIndexMonth);
+        }
+      }
       fetch(`${apiUrl}/api/v1/indexation/preview?${params.toString()}`, {
         credentials: "include",
         signal: controller.signal,
@@ -412,6 +441,7 @@ export default function LeasesPage() {
     apiUrl,
     lastIndexationDateState,
     leaseRegistered,
+    walloniaPebLabel2022,
   ]);
 
   // Is indexation available again? Prefer the manual last-indexation date; fall
@@ -489,6 +519,7 @@ export default function LeasesPage() {
       indexationEnabled,
       landlordLateNotify,
       leaseRegistered,
+      walloniaPebLabel2022: regionState === "wallonia" ? walloniaPebLabel2022 : undefined,
       priorPaymentsSettled,
       baseRent,
       indexationBaseMonth: refMonth,
@@ -1372,6 +1403,16 @@ export default function LeasesPage() {
                         className="mt-2 text-xs"
                       />
                     )}
+                    {preview.region === "wallonia" && (
+                      <WalloniaPebNote
+                        wallonia={preview.wallonia}
+                        blocked={preview.indexationBlocked}
+                        className="mt-2 text-xs"
+                      />
+                    )}
+                    {preview.region === "flanders" && (
+                      <FlandersAnnouncedNote restriction={preview.announcedRestriction} className="mt-2 text-xs" />
+                    )}
                     {preview.region === "flanders" && !preview.epcLabel && (
                       <p className="mt-2 text-xs text-yellow-700 dark:text-yellow-500">
                         {t("epcNeededShort")}
@@ -1380,6 +1421,29 @@ export default function LeasesPage() {
                     <p className="mt-2 text-xs text-muted-foreground">{t("onceAYearNote")}</p>
                   </div>
                 )}
+              </div>
+            )}
+            {/* Wallonia: PEB label of the 2022-2023 window, for leases in force before November 2022 */}
+            {regionState === "wallonia" && startDateState !== "" && startDateState < "2022-11-01" && (
+              <div className="rounded-lg border border-input px-4 py-3">
+                <label htmlFor="walloniaPebLabel2022" className="text-sm font-medium">
+                  {t("walloniaPebLabel2022")}
+                </label>
+                <p className="text-xs text-muted-foreground">{t("walloniaPebLabel2022Description")}</p>
+                <select
+                  id="walloniaPebLabel2022"
+                  value={walloniaPebLabel2022}
+                  onChange={(e) => setWalloniaPebLabel2022(e.target.value)}
+                  className={`${ic} mt-2`}
+                >
+                  <option value="">{t("walloniaPebSameAsProperty")}</option>
+                  {["A++", "A+", "A", "B", "C", "D", "E", "F", "G"].map((l) => (
+                    <option key={l} value={l}>
+                      PEB {l}
+                    </option>
+                  ))}
+                  <option value="none">{t("walloniaPebNone")}</option>
+                </select>
               </div>
             )}
             {/* Lease registration (Brussels: no indexation without it) */}
