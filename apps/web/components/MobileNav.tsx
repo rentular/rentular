@@ -87,7 +87,9 @@ export default function MobileNav({
                 <span className="text-2xl font-bold text-white">Rentular</span>
               </div>
 
-              <nav className="flex-1 space-y-1 px-3 pb-4 pt-12">
+              {/* The list scrolls on short screens (iPhone SE to 13 in Safari)
+                  so the language switcher and sign out below stay reachable. */}
+              <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto px-3 pb-4 pt-12">
                 {items.map((item) => {
                   const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
                   return (

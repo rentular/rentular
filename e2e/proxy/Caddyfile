@@ -1,0 +1,14 @@
+# Same routing as production: /api/v1 goes to the API, the rest to the web app.
+{
+	auto_https off
+	admin off
+}
+
+:8080 {
+	handle /api/v1/* {
+		reverse_proxy api:4000
+	}
+	handle {
+		reverse_proxy web:3000
+	}
+}

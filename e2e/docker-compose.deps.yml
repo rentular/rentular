@@ -1,0 +1,43 @@
+# Backing services for e2e/run-local.sh (API and web run on the host).
+# Ports bind to 127.0.0.1 only and use numbers that do not clash with a normal
+# dev stack (3306, 6379, 1025). Data lives in tmpfs, so every run starts empty
+# and `down` leaves nothing behind.
+name: rentular-e2e-deps
+
+services:
+  mariadb:
+    image: mariadb:11
+    environment:
+      MARIADB_ROOT_PASSWORD: ${E2E_DB_ROOT_PASSWORD:?run e2e/run-local.sh, it writes e2e/.env.e2e.local}
+      MARIADB_DATABASE: rentular_e2e
+      MARIADB_USER: rentular_e2e
+      MARIADB_PASSWORD: ${E2E_DB_PASSWORD:?run e2e/run-local.sh, it writes e2e/.env.e2e.local}
+    ports:
+      - "127.0.0.1:${E2E_DB_PORT:-33306}:3306"
+    tmpfs:
+      - /var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 2s
+      timeout: 5s
+      retries: 60
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    ports:
+      - "127.0.0.1:${E2E_REDIS_PORT:-36379}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+
+  mailpit:
+    image: axllent/mailpit:latest
+    environment:
+      MP_SMTP_AUTH_ACCEPT_ANY: 1
+      MP_SMTP_AUTH_ALLOW_INSECURE: 1
+    ports:
+      - "127.0.0.1:${E2E_SMTP_PORT:-31025}:1025"
+      - "127.0.0.1:${E2E_MAIL_UI_PORT:-38025}:8025"

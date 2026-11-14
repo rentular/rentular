@@ -11,6 +11,10 @@ out
 # Secrets & local env — MUST never enter the build context / image layers
 .env
 .env.*
+**/.env.*
+
+# Browser test reports
+e2e/artifacts
 
 # Version control & project docs/tooling
 .git

@@ -1,0 +1,160 @@
+# Self-contained Rentular test stack: database, Redis, Mailpit, API, web, a
+# small proxy that puts web and API on one origin (as in production), and the
+# Playwright test runner. Everything sits on one internal network; no port is
+# published. Data lives in tmpfs, so `down` leaves nothing behind.
+#
+# Use e2e/run-compose.sh rather than calling this file directly: it creates
+# the secrets file, picks the report folder, tears the stack down afterwards
+# and returns the runner's exit code.
+#
+# Resource limits keep a run light enough to share a host with other work.
+name: rentular-e2e
+
+x-app-env: &app-env
+  NODE_ENV: production
+  TZ: UTC
+  DB_HOST: mariadb
+  DB_PORT: "3306"
+  DB_NAME: rentular_e2e
+  DB_USER: rentular_e2e
+  DB_PASSWORD: ${E2E_DB_PASSWORD:?run e2e/run-compose.sh, it writes e2e/.env.e2e.local}
+  REDIS_URL: redis://redis:6379
+  REDIS_HOST: redis
+  REDIS_PORT: "6379"
+  SMTP_HOST: mailpit
+  SMTP_PORT: "1025"
+  EMAIL_FROM: noreply@e2e.local
+  AUTH_SECRET: ${E2E_AUTH_SECRET:?run e2e/run-compose.sh}
+  AUTH_URL: http://rentular.test:8080
+  AUTH_TRUST_HOST: "true"
+  WEB_URL: http://rentular.test:8080
+  ALLOWED_ORIGINS: http://rentular.test:8080
+  APP_TIMEZONE: Europe/Brussels
+  SMS_PROVIDER: console
+
+networks:
+  e2e:
+    internal: true
+
+services:
+  mariadb:
+    image: mariadb:11
+    networks: [e2e]
+    environment:
+      MARIADB_ROOT_PASSWORD: ${E2E_DB_ROOT_PASSWORD:?run e2e/run-compose.sh}
+      MARIADB_DATABASE: rentular_e2e
+      MARIADB_USER: rentular_e2e
+      MARIADB_PASSWORD: ${E2E_DB_PASSWORD:?run e2e/run-compose.sh}
+    tmpfs: [/var/lib/mysql]
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 3s
+      timeout: 5s
+      retries: 60
+    deploy:
+      resources:
+        limits: { cpus: "1", memory: 768M }
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    networks: [e2e]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 5s
+      retries: 30
+    deploy:
+      resources:
+        limits: { cpus: "0.25", memory: 128M }
+
+  mailpit:
+    image: axllent/mailpit:latest
+    networks: [e2e]
+    environment:
+      MP_SMTP_AUTH_ACCEPT_ANY: 1
+      MP_SMTP_AUTH_ALLOW_INSECURE: 1
+    deploy:
+      resources:
+        limits: { cpus: "0.25", memory: 128M }
+
+  api:
+    build:
+      context: ..
+      dockerfile: apps/api/Dockerfile
+    networks: [e2e]
+    environment:
+      <<: *app-env
+      API_PORT: "4000"
+    depends_on:
+      mariadb: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    deploy:
+      resources:
+        limits: { cpus: "1", memory: 768M }
+
+  web:
+    build:
+      context: ..
+      dockerfile: apps/web/Dockerfile
+      args:
+        # The browser reaches the API through the proxy below; the app adds /api/v1.
+        NEXT_PUBLIC_API_URL: http://rentular.test:8080
+    networks: [e2e]
+    environment:
+      <<: *app-env
+      PORT: "3000"
+      HOSTNAME: 0.0.0.0
+    depends_on:
+      mariadb: { condition: service_healthy }
+    deploy:
+      resources:
+        limits: { cpus: "1", memory: 768M }
+
+  # One origin for web and API, like the production reverse proxy, so the
+  # session cookie reaches both.
+  # The browsers use the dotted name: WebKit on Linux does not keep cookies
+  # for a single-label host such as "app", so sign-in would not stick.
+  app:
+    image: caddy:2
+    networks:
+      e2e:
+        aliases: [rentular.test]
+    command: ["caddy", "run", "--config", "/etc/caddy/Caddyfile", "--adapter", "caddyfile"]
+    volumes:
+      - ./proxy/Caddyfile:/etc/caddy/Caddyfile:ro
+    depends_on: [api, web]
+    deploy:
+      resources:
+        limits: { cpus: "0.25", memory: 128M }
+
+  runner:
+    build:
+      context: ..
+      dockerfile: e2e/Dockerfile
+    networks: [e2e]
+    user: "${E2E_UID:-1001}:${E2E_GID:-1001}"
+    environment:
+      HOME: /tmp
+      E2E_BASE_URL: http://rentular.test:8080
+      E2E_API_URL: http://rentular.test:8080/api/v1
+      E2E_DB_HOST: mariadb
+      E2E_DB_PORT: "3306"
+      E2E_DB_PASSWORD: ${E2E_DB_PASSWORD:?run e2e/run-compose.sh}
+      E2E_LANDLORD_EMAIL: ${E2E_LANDLORD_EMAIL:-landlord@e2e.local}
+      E2E_LANDLORD_PASSWORD: ${E2E_LANDLORD_PASSWORD:?run e2e/run-compose.sh}
+      E2E_ONBOARDING_EMAIL: ${E2E_ONBOARDING_EMAIL:-onboarding@e2e.local}
+      E2E_ONBOARDING_PASSWORD: ${E2E_ONBOARDING_PASSWORD:?run e2e/run-compose.sh}
+      E2E_PROJECTS: ${E2E_PROJECTS:-chromium-desktop,chromium-mobile,webkit-desktop,webkit-mobile}
+      E2E_GREP: ${E2E_GREP:-}
+      E2E_ARTIFACTS_DIR: /reports
+    volumes:
+      - ${E2E_REPORT_DIR:?run e2e/run-compose.sh}:/reports
+    # Browsers need more shared memory than Docker's 64 MB default.
+    shm_size: 1gb
+    depends_on:
+      mariadb: { condition: service_healthy }
+      app: { condition: service_started }
+    deploy:
+      resources:
+        limits: { cpus: "2", memory: 2G }

@@ -116,6 +116,14 @@ export default function OnboardingPage() {
 
   const [formErrors, setFormErrors] = useState<FormErrors>({});
 
+  // The middleware sends users whose session says "onboarding not complete"
+  // back here. Reading the session makes the auth callback re-check the
+  // database and reissue the cookie, so leave only after that.
+  const goToDashboard = useCallback(async () => {
+    await fetch("/api/auth/session", { cache: "no-store" }).catch(() => undefined);
+    router.push("/properties");
+  }, [router]);
+
   // Fetch onboarding status and existing data on mount
   const fetchData = useCallback(async () => {
     try {
@@ -129,7 +137,7 @@ export default function OnboardingPage() {
       if (statusRes.ok) {
         const status = await statusRes.json();
         if (status.onboardingComplete) {
-          router.push("/properties");
+          await goToDashboard();
           return;
         }
         setCurrentStep(status.onboardingStep || 1);
@@ -152,7 +160,7 @@ export default function OnboardingPage() {
     } finally {
       setLoading(false);
     }
-  }, [apiUrl, router]);
+  }, [apiUrl, goToDashboard]);
 
   useEffect(() => {
     fetchData();
@@ -312,7 +320,7 @@ export default function OnboardingPage() {
         credentials: "include",
         body: JSON.stringify({ complete: true }),
       });
-      router.push("/properties");
+      await goToDashboard();
     } catch {
       setError("Failed to skip setup.");
     }
@@ -787,7 +795,7 @@ export default function OnboardingPage() {
             {t("onboarding.completeDesc")}
           </p>
           <button
-            onClick={() => router.push("/properties")}
+            onClick={() => void goToDashboard()}
             className="mt-8 rounded-md bg-[hsl(var(--primary))] px-6 py-2.5 text-sm font-medium text-[hsl(var(--primary-foreground))] hover:opacity-90"
           >
             {t("onboarding.goToDashboard")}

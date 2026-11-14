@@ -128,6 +128,22 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           // Database unavailable at sign-in; default to incomplete
           token.onboardingComplete = false;
         }
+      } else if (token.onboardingComplete === false && token.email) {
+        // The middleware reads this flag from the token to keep new users on
+        // /onboarding. Re-check until it is done, otherwise finishing or
+        // skipping onboarding leaves the user bounced back to the wizard
+        // until they sign out and in again. Once true it is never queried.
+        try {
+          const db = getDb();
+          const dbUser = await db
+            .select({ onboardingComplete: users.onboardingComplete })
+            .from(users)
+            .where(eq(users.email, token.email as string))
+            .limit(1);
+          token.onboardingComplete = dbUser[0]?.onboardingComplete ?? false;
+        } catch {
+          // Keep the current value when the database is unavailable
+        }
       }
       return token;
     },
