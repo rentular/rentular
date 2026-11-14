@@ -18,6 +18,8 @@ export interface E2eConfig {
   /** True when testing an already deployed instance instead of the local stack. */
   remote: boolean;
   landlord: { email: string; password: string };
+  /** Names the dashboard tests look for: the landlord's property and tenant. */
+  fixtures: { propertyName: string; tenantEmail: string };
   onboarding: { email: string; password: string };
   db: { host: string; port: number; user: string; password: string; name: string };
   mailUiUrl: string;
@@ -86,9 +88,14 @@ export function loadConfig(): E2eConfig {
       email: process.env.E2E_LANDLORD_EMAIL || "landlord@e2e.local",
       password: required("E2E_LANDLORD_PASSWORD"),
     },
+    fixtures: {
+      propertyName: process.env.E2E_PROPERTY_NAME || "Teststraat 1",
+      tenantEmail: process.env.E2E_TENANT_EMAIL || "tenant@e2e.local",
+    },
     onboarding: {
       email: process.env.E2E_ONBOARDING_EMAIL || "onboarding@e2e.local",
-      password: required("E2E_ONBOARDING_PASSWORD"),
+      // Remote mode never signs in as the onboarding account.
+      password: remote ? process.env.E2E_ONBOARDING_PASSWORD || "" : required("E2E_ONBOARDING_PASSWORD"),
     },
     db: {
       host: process.env.E2E_DB_HOST || "127.0.0.1",

@@ -65,6 +65,12 @@ async function seedLandlordData(db: mysql.Connection, ownerId: string): Promise<
      VALUES (?, ?, 'Teststraat 1', 'apartment', 'Teststraat', '1', '1000', 'Brussel', 'BE')`,
     [propertyId, ownerId]
   );
+  // Access goes through property_managers, as when the app creates a property.
+  await db.query(
+    `INSERT INTO property_managers (id, property_id, user_id, role, invited_by, accepted_at)
+     VALUES (?, ?, ?, 'owner', ?, NOW())`,
+    [randomUUID(), propertyId, ownerId, ownerId]
+  );
 
   const tenantId = randomUUID();
   await db.query(
@@ -103,6 +109,34 @@ async function seedLandlordData(db: mysql.Connection, ownerId: string): Promise<
   }
 }
 
+/**
+ * Removes what an earlier onboarding run created, so the wizard starts empty
+ * again when the suite is re-run against a database that was kept.
+ */
+async function resetOwnedData(db: mysql.Connection, ownerId: string): Promise<void> {
+  const leaseIds = "SELECT id FROM leases WHERE owner_id = ?";
+  const statements = [
+    `DELETE FROM payment_allocations WHERE lease_id IN (${leaseIds})`,
+    `DELETE FROM payment_reminders WHERE payment_id IN (SELECT id FROM payments WHERE lease_id IN (${leaseIds}))`,
+    `DELETE FROM payments WHERE lease_id IN (${leaseIds})`,
+    `DELETE FROM communications WHERE lease_id IN (${leaseIds})`,
+    `DELETE FROM lease_tenants WHERE lease_id IN (${leaseIds})`,
+    "DELETE FROM leases WHERE owner_id = ?",
+    "DELETE FROM tenants WHERE owner_id = ?",
+    "DELETE FROM property_managers WHERE property_id IN (SELECT id FROM properties WHERE owner_id = ?)",
+    "DELETE FROM properties WHERE owner_id = ?",
+  ];
+  for (const sql of statements) {
+    try {
+      await db.query(sql, [ownerId]);
+    } catch (err) {
+      // A table or column this statement expects may not exist in older schemas.
+      const code = (err as { code?: string }).code;
+      if (code !== "ER_NO_SUCH_TABLE" && code !== "ER_BAD_FIELD_ERROR") throw err;
+    }
+  }
+}
+
 export async function seed(projects: readonly string[]): Promise<void> {
   const cfg = loadConfig();
   if (cfg.remote) {
@@ -128,12 +162,13 @@ export async function seed(projects: readonly string[]): Promise<void> {
 
     const emails = [cfg.onboarding.email, ...projects.map((p) => onboardingEmailFor(cfg, p))];
     for (const email of emails) {
-      await upsertUser(db, {
+      const user = await upsertUser(db, {
         email,
         password: cfg.onboarding.password,
         name: "",
         onboardingComplete: false,
       });
+      if (!user.created) await resetOwnedData(db, user.id);
       console.log(`[Seed] onboarding account ready (${email})`);
     }
   } finally {
