@@ -39,7 +39,7 @@
     "managers": "Beheerders",
     "import": "Importeren",
     "mandates": "Mandaten",
-    "bankConnections": "Bank Connections",
+    "bankConnections": "Bankkoppelingen",
     "reconciliation": "Reconciliatie"
   },
   "properties": {
@@ -1147,7 +1147,7 @@
     }
   },
   "bankConnections": {
-    "title": "Bank Connections",
+    "title": "Bankkoppelingen",
     "subtitle": "Connect your bank account so Rentular can automatically import and match incoming rent transfers.",
     "connectBank": "Connect bank account",
     "emptyTitle": "No bank connections yet",
@@ -1799,7 +1799,7 @@
       "s1": {
         "title": "Wat je gaat doen",
         "paras": [
-          "Log in bij Rentular, open \"Bank Connections\" in het menu en klik op koppelen. Kies \"Enable Banking met je eigen app\". Rentular toont dan de stappen één voor één, met bovenaan hoe ver je bent.",
+          "Log in bij Rentular, open \"Bankkoppelingen\" in het menu en klik op koppelen. Kies \"Enable Banking met je eigen app\". Rentular toont dan de stappen één voor één, met bovenaan hoe ver je bent.",
           "Je kan op elk moment stoppen. Kom je later terug, dan opent Rentular de stap waar je gebleven was."
         ],
         "expect": "Bovenaan de pagina in Rentular staat \"Stap 1 van 6\"."

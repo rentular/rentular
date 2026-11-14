@@ -15,6 +15,9 @@ export const metadata: Metadata = {
   description:
     "OpenSource real estate management platform for payment follow-up, rent indexation, and tenant management.",
   alternates: { canonical: "/" },
+  // Every page exists in EN/NL/FR/DE, so browser machine translation only adds
+  // errors (Chrome turns the brand into "Rentulair"). Ask browsers not to.
+  other: { google: "notranslate" },
 };
 
 export default async function RootLayout({
@@ -26,7 +29,7 @@ export default async function RootLayout({
   const messages = await getMessages();
 
   return (
-    <html lang={locale} suppressHydrationWarning>
+    <html lang={locale} translate="no" className="notranslate" suppressHydrationWarning>
       <body className={inter.className}>
         <NextIntlClientProvider messages={messages}>
           <QueryProvider>
