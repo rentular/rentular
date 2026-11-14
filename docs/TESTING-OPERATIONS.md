@@ -331,6 +331,7 @@ Write (write token, only on test data):
 | `POST /payments/generate-expected` | none | fills in the expected rent rows |
 | `POST /payments/send-reminder` | `{"leaseId":"<id>","month":"YYYY-MM","level":"friendly"}` | sends a reminder **to your fake tenant, so to you** |
 | `POST /payments/mark-month-paid` | `{"leaseId":"<id>","month":"YYYY-MM"}` | marks that month paid by hand |
+| `POST /payments/unmark-month-paid` | `{"leaseId":"<id>","month":"YYYY-MM"}` | undoes the latest paid mark of that month: the month is open again exactly as before |
 | `POST /leases/<id>/reminder-mute` | `{"until":"YYYY-MM-DD","note":"ops test"}` | mutes late payment reminders until that date |
 | `DELETE /leases/<id>/reminder-mute` | none | unmutes |
 | `DELETE /leases/<id>`, `/tenants/<id>`, `/properties/<id>` | none | removes test data again |
@@ -363,7 +364,25 @@ above.
    there and `scheduled` is empty for that period. Then
    `DELETE /leases/<id>/reminder-mute`.
 8. `POST /payments/mark-month-paid` for this month, then the dashboard again:
-   the rent moves to paid.
+   the rent moves to paid. A second `POST /payments/send-reminder` now
+   answers with code `nothing_owed`: that is correct, nothing is open.
+9. `POST /payments/unmark-month-paid` with the same `leaseId` and `month`.
+   The answer has `"already": false`; the dashboard shows the rent as before
+   step 8 (to come or overdue). This puts the test contract back where it
+   started, so the next run (tomorrow or next week) can send a reminder and
+   mark the month paid again. Calling it a second time is harmless and
+   answers `"already": true`.
+   - `GET /leases/<id>/communications` keeps two internal notes ("marked paid
+     by hand" and "paid mark undone") and the reminder from step 4. Those stay
+     on purpose: the reminder really went out, and the notes show what
+     happened. They are never sent to anyone and do not count in the 7-day
+     message counter.
+   - If the answer is a 409, the payment was changed in between (for example
+     matched to a bank transaction); the `error` says what to do. Report it.
+
+The same undo is in the web app: "Ongedaan maken" next to a month marked
+paid by hand on the overview (paid list), the payments page and the contract
+page, and on the "Gemarkeerd als betaald" message right after marking.
 
 Write down what you saw. If any step differs, report it (see below) with the
 time of the step, so the developer can find it in the audit log.
@@ -385,7 +404,8 @@ The repository has a small MCP server (`apps/mcp-server`) that lets Claude
 read and act on a Rentular account through the same API and tokens. With
 your test account's token you can ask Claude things like "show the payment
 overview of my test account" or "send a friendly reminder for this month on
-the test contract". Setup is in `apps/mcp-server/README.md`. The same rules
+the test contract". The `mark_rent_paid` and `unmark_rent_paid` tools do
+steps 8 and 9. Setup is in `apps/mcp-server/README.md`. The same rules
 apply: test account only.
 
 ## Reporting a problem
