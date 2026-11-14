@@ -46,7 +46,11 @@ vi.mock("../../lib/gocardless", () => ({
   createPayment: vi.fn(),
   retryPayment: vi.fn(),
   cancelPayment: vi.fn(),
-  isGoCardlessConfigured: vi.fn(() => false),
+  getGoCardlessAvailability: vi.fn(async () => ({ available: false, code: "GOCARDLESS_NOT_CONNECTED", mode: "partner" })),
+  isGoCardlessUnavailable: vi.fn(() => false),
+}));
+vi.mock("../../lib/gocardlessConnections", () => ({
+  ownerOfProperty: vi.fn(async () => "owner-1"),
 }));
 vi.mock("../../services/paymentStateMachine", () => ({ transitionPayment: vi.fn() }));
 vi.mock("../../services/expectedPayments", () => ({

@@ -22,6 +22,10 @@ import { toast } from "sonner";
 import Link from "next/link";
 import { SmsSettingsCard } from "@/components/SmsSettingsCard";
 import { ApiTokensCard } from "@/components/ApiTokensCard";
+import {
+  GoCardlessConnectionCard,
+  type GoCardlessSetupStatus,
+} from "@/components/GoCardlessConnectionCard";
 import IbanInput, { BicSelect, BankNameSelect } from "@/components/IbanInput";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
@@ -283,11 +287,7 @@ function deepCloneTemplates(t: TemplatesByLang): TemplatesByLang {
 
 function GoCardlessSettingsTab({ apiUrl }: { apiUrl: string }) {
   const t = useTranslations("settings");
-  const [gcStatus, setGcStatus] = useState<{
-    configured: boolean;
-    environment: string;
-    maskedToken: string;
-  } | null>(null);
+  const [gcStatus, setGcStatus] = useState<GoCardlessSetupStatus | null>(null);
   const [creditor, setCreditor] = useState<{
     creditorId: string;
     scheme: string;
@@ -300,14 +300,17 @@ function GoCardlessSettingsTab({ apiUrl }: { apiUrl: string }) {
       : "bank_transfer"
   );
 
-  useEffect(() => {
-    // Fetch GoCardless status
-    fetch(`${apiUrl}/api/v1/gocardless/status`, { credentials: "include" })
-      .then((res) => res.json())
-      .then((data) => setGcStatus(data))
-      .catch(() => setGcStatus(null));
+  const gcReady =
+    !!gcStatus &&
+    (gcStatus.mode === "instance" ? gcStatus.configured : !!gcStatus.connection?.connected);
 
-    // Fetch creditor info
+  useEffect(() => {
+    // Creditor info, only once GoCardless can be used for this landlord
+    if (!gcReady) {
+      setCreditor(null);
+      setCreditorLoading(false);
+      return;
+    }
     setCreditorLoading(true);
     fetch(`${apiUrl}/api/v1/gocardless/creditor`, { credentials: "include" })
       .then((res) => {
@@ -323,7 +326,7 @@ function GoCardlessSettingsTab({ apiUrl }: { apiUrl: string }) {
         setCreditorError(true);
       })
       .finally(() => setCreditorLoading(false));
-  }, [apiUrl]);
+  }, [apiUrl, gcReady]);
 
   const handleUpdateDefaultMethod = () => {
     if (typeof window !== "undefined") {
@@ -353,40 +356,12 @@ function GoCardlessSettingsTab({ apiUrl }: { apiUrl: string }) {
 
       <Separator />
 
-      {/* Connection Status */}
-      <Card>
-        <CardHeader>
-          <CardTitle>{t("goCardlessConnectionStatus")}</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-muted-foreground">{t("goCardlessConnectionStatus")}</span>
-            <span className="flex items-center gap-2 text-sm font-medium">
-              {gcStatus?.configured ? (
-                <>
-                  <span className="inline-block h-2.5 w-2.5 rounded-full bg-green-500" />
-                  {t("goCardlessConnected")}
-                </>
-              ) : (
-                <>
-                  <span className="inline-block h-2.5 w-2.5 rounded-full bg-red-500" />
-                  {t("goCardlessNotConfigured")}
-                </>
-              )}
-            </span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-muted-foreground">{t("goCardlessEnvironment")}</span>
-            <Badge variant="secondary">{gcStatus?.environment || "sandbox"}</Badge>
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-muted-foreground">{t("goCardlessApiToken")}</span>
-            <span className="text-sm font-mono">{gcStatus?.maskedToken || "---"}</span>
-          </div>
-          <p className="text-xs text-muted-foreground mt-4">{t("goCardlessEnvNote")}</p>
-        </CardContent>
-      </Card>
+      {/* Direct debit: the landlord's own GoCardless account (hosted) or the
+          server's token (self-hosted). Never shows a token. */}
+      <GoCardlessConnectionCard apiUrl={apiUrl} onStatus={setGcStatus} />
 
+      {gcReady && (
+        <>
       <Separator />
 
       {/* Creditor Info */}
@@ -418,6 +393,8 @@ function GoCardlessSettingsTab({ apiUrl }: { apiUrl: string }) {
           )}
         </CardContent>
       </Card>
+        </>
+      )}
 
       <Separator />
 
@@ -602,6 +579,12 @@ function ProfileTab({ apiUrl }: { apiUrl: string }) {
 
 export default function SettingsPage() {
   const t = useTranslations("settings");
+  const [activeTab, setActiveTab] = useState("follow-up");
+  // ?tab=gocardless (for example after the GoCardless connect flow) opens that tab.
+  useEffect(() => {
+    const tab = new URLSearchParams(window.location.search).get("tab");
+    if (tab) setActiveTab(tab);
+  }, []);
   const [templateLang, setTemplateLang] = useState<Lang>("nl");
   const [loading, setLoading] = useState(true);
   const [settings, setSettings] = useState<FollowUpSettings>({
@@ -850,7 +833,7 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      <Tabs defaultValue="follow-up" className="w-full">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="grid w-full grid-cols-2 md:grid-cols-6 mb-6">
           <TabsTrigger value="follow-up">{t("paymentFollowUp")}</TabsTrigger>
           <TabsTrigger value="landlord-reports">{t("landlordReports")}</TabsTrigger>

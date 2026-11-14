@@ -32,7 +32,8 @@ export interface OAuthStatePayload {
   // exchanges the code against the right app.
   model?: "ppm" | "cpm";
   // Enable Banking: which provider started the flow, and the bank picked.
-  provider?: "ponto" | "enable_banking";
+  // "gocardless": the GoCardless partner connect flow (not a bank connection).
+  provider?: "ponto" | "enable_banking" | "gocardless";
   aspspName?: string;
   aspspCountry?: string;
   psuType?: "personal" | "business";
@@ -87,7 +88,9 @@ export async function verifyOAuthState(
         ? "enable_banking"
         : payload.provider === "ponto"
           ? "ponto"
-          : undefined,
+          : payload.provider === "gocardless"
+            ? "gocardless"
+            : undefined,
     aspspName: payload.aspspName ? String(payload.aspspName) : undefined,
     aspspCountry: payload.aspspCountry ? String(payload.aspspCountry) : undefined,
     psuType:

@@ -256,6 +256,12 @@ bankConnectionsRouter.get(
       );
     }
 
+    // A state minted for another flow (Enable Banking, GoCardless connect) is
+    // never accepted here.
+    if (payload.provider && payload.provider !== "ponto") {
+      return c.redirect(`${webUrl()}/bank-connections/callback?error=expired_state`);
+    }
+
     // Which Ponto application this consent belongs to (carried in the state JWT).
     const model = payload.model ?? "ppm";
 

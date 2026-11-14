@@ -8,8 +8,10 @@ import {
   createPayment as gcCreatePayment,
   retryPayment as gcRetryPayment,
   cancelPayment as gcCancelPayment,
-  isGoCardlessConfigured,
+  getGoCardlessAvailability,
+  isGoCardlessUnavailable,
 } from "../lib/gocardless";
+import { ownerOfProperty } from "../lib/gocardlessConnections";
 import { transitionPayment } from "../services/paymentStateMachine";
 import {
   ensureExpectedPaymentsForAllActive,
@@ -1059,8 +1061,17 @@ paymentsRouter.post(
       );
     }
 
-    if (!isGoCardlessConfigured()) {
-      return c.json({ error: "GoCardless is not configured." }, 503);
+    // Collect with the property owner's GoCardless account, never another one.
+    const ownerId = await ownerOfProperty(lease.propertyId);
+    if (!ownerId) {
+      return c.json({ error: "Property not found" }, 404);
+    }
+    const availability = await getGoCardlessAvailability({ ownerId });
+    if (!availability.available) {
+      return c.json(
+        { error: "GoCardless is not available for this property.", code: availability.code },
+        409
+      );
     }
 
     const amount =
@@ -1068,7 +1079,7 @@ paymentsRouter.post(
     const idempotencyKey = crypto.randomUUID();
 
     try {
-      const gcResult = await gcCreatePayment({
+      const gcResult = await gcCreatePayment({ ownerId }, {
         mandateId: lease.gocardlessMandateId,
         amount,
         description: data.description || "Rent payment",
@@ -1107,6 +1118,9 @@ paymentsRouter.post(
         201
       );
     } catch (err) {
+      if (isGoCardlessUnavailable(err)) {
+        return c.json({ error: err.message, code: err.code }, 409);
+      }
       console.error("[Payments] GoCardless createPayment failed:", err);
       const message =
         err instanceof Error ? err.message : "GoCardless payment creation failed";
@@ -1147,12 +1161,20 @@ paymentsRouter.post("/:id/retry", async (c) => {
     return c.json({ error: "Only GoCardless payments can be retried" }, 400);
   }
 
+  const ownerId = await ownerOfProperty(result[0].leases.propertyId);
+  if (!ownerId) {
+    return c.json({ error: "Property not found" }, 404);
+  }
+
   try {
-    await gcRetryPayment(payment.gocardlessPaymentId);
+    await gcRetryPayment({ ownerId }, payment.gocardlessPaymentId);
     await transitionPayment(payment.id, "processing");
 
     return c.json({ data: { id: payment.id, status: "processing" } });
   } catch (err) {
+    if (isGoCardlessUnavailable(err)) {
+      return c.json({ error: err.message, code: err.code }, 409);
+    }
     console.error("[Payments] GoCardless retryPayment failed:", err);
     const message =
       err instanceof Error ? err.message : "GoCardless payment retry failed";
@@ -1193,13 +1215,20 @@ paymentsRouter.post("/:id/cancel", async (c) => {
 
   try {
     if (payment.gocardlessPaymentId) {
-      await gcCancelPayment(payment.gocardlessPaymentId);
+      const ownerId = await ownerOfProperty(result[0].leases.propertyId);
+      if (!ownerId) {
+        return c.json({ error: "Property not found" }, 404);
+      }
+      await gcCancelPayment({ ownerId }, payment.gocardlessPaymentId);
     }
 
     await transitionPayment(payment.id, "cancelled");
 
     return c.json({ data: { id: payment.id, status: "cancelled" } });
   } catch (err) {
+    if (isGoCardlessUnavailable(err)) {
+      return c.json({ error: err.message, code: err.code }, 409);
+    }
     console.error("[Payments] GoCardless cancelPayment failed:", err);
     const message =
       err instanceof Error ? err.message : "GoCardless payment cancellation failed";

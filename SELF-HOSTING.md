@@ -356,7 +356,8 @@ body).
 | Google sign-in | Google Cloud console, authorized redirect URI | `https://rent.example.org/api/auth/callback/google` |
 | Facebook sign-in | Facebook app, valid OAuth redirect URI | `https://rent.example.org/api/auth/callback/facebook` |
 | X sign-in | X developer portal, callback URL | `https://rent.example.org/api/auth/callback/twitter` |
-| GoCardless | Developers, webhook endpoint; secret into `GOCARDLESS_WEBHOOK_SECRET` | `https://rent.example.org/api/v1/webhooks/gocardless` |
+| GoCardless | Developers, webhook endpoint; secret into `GOCARDLESS_WEBHOOK_SECRET` (partner app: `GOCARDLESS_PARTNER_WEBHOOK_SECRET`) | `https://rent.example.org/api/v1/webhooks/gocardless` |
+| GoCardless partner app (several landlords only) | The app's redirect URI | `https://rent.example.org/api/v1/gocardless/connect/callback` |
 | Stripe | Developers, webhooks; signing secret into `STRIPE_WEBHOOK_SECRET` | `https://rent.example.org/api/v1/stripe/webhook` |
 | Ponto | Ibanity developer portal, redirect URI; same value in `BANK_CONNECTION_REDIRECT_URL` | `https://rent.example.org/api/v1/bank-connections/callback` |
 | Enable Banking | Enable Banking Control Panel, the application's redirect URL | `https://rent.example.org/api/v1/bank-connections/enable-banking/callback` |
@@ -380,6 +381,56 @@ requests for both certificate types. Store the files outside the repository,
 readable only by the user that runs the API (`chmod 600`). With the compose
 route, mount them into the API container and use the paths inside the
 container, or put the PEM text inline in the env file.
+
+### GoCardless direct debit
+
+Rent collected by SEPA direct debit lands in a GoCardless creditor account and
+is paid out from there to a bank account. Who owns that creditor depends on how
+many landlords use the install.
+
+**One landlord (the usual self-hosted case).** Use your own GoCardless account:
+
+1. Create an account at [gocardless.com](https://gocardless.com) (or start in
+   the [sandbox](https://manage-sandbox.gocardless.com)).
+2. Under Developers, create an access token with read and write access and
+   put it in `GOCARDLESS_ACCESS_TOKEN`. Set `GOCARDLESS_ENVIRONMENT` to
+   `sandbox` or `live` to match.
+3. Under Developers, add the webhook endpoint from the table above and put its
+   secret in `GOCARDLESS_WEBHOOK_SECRET`.
+4. If your GoCardless account has more than one creditor, set
+   `GOCARDLESS_CREDITOR_ID` to the one Rentular should use. Otherwise the
+   first is used and the API logs which one.
+
+Keep `RENTULAR_INSTANCE=self`. Every landlord on the install then collects
+into that one creditor, so only do this when the install is yours alone.
+
+**Several landlords on one install.** Never share one token: every tenant's
+rent would land in the same creditor. Set `RENTULAR_INSTANCE=hosted` and use a
+GoCardless partner app instead. Each landlord then connects their own
+GoCardless account in Settings, GoCardless tab, and rent goes straight to
+them. The instance token is ignored in this mode.
+
+1. Ask GoCardless for a partner account and register an app (sandbox first).
+2. Set the app's redirect URI to
+   `https://rent.example.org/api/v1/gocardless/connect/callback`
+   (override with `GOCARDLESS_PARTNER_REDIRECT_URL` if the API lives
+   elsewhere).
+3. Put the app's client id and secret in `GOCARDLESS_PARTNER_CLIENT_ID` and
+   `GOCARDLESS_PARTNER_CLIENT_SECRET`, and `sandbox` or `live` in
+   `GOCARDLESS_PARTNER_ENVIRONMENT`.
+4. Set the app's webhook URL to
+   `https://rent.example.org/api/v1/webhooks/gocardless` and put its secret in
+   `GOCARDLESS_PARTNER_WEBHOOK_SECRET`. Events are matched to a landlord by
+   their GoCardless organisation; events for an organisation nobody connected
+   are logged and ignored.
+
+Disconnecting in Rentular revokes the landlord's token at GoCardless. When a
+landlord removes Rentular on the GoCardless side instead, the next API call
+gets `access_token_revoked`; Rentular then marks the connection revoked and
+asks the landlord to connect again.
+
+Without the partner credentials a hosted install simply offers no direct debit.
+Rentular takes no app fee on these payments.
 
 ### Enable Banking (free, your own app)
 

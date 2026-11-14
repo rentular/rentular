@@ -19,6 +19,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
+import Link from "next/link";
 
 interface MandateSetupModalProps {
   open: boolean;
@@ -61,6 +62,44 @@ export function MandateSetupModal({
   const [sending, setSending] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [sentEmail, setSentEmail] = useState("");
+  // Can the landlord of this lease collect by direct debit? null while unknown.
+  const [gcBlock, setGcBlock] = useState<
+    | null
+    | { code: string; isOwnAccount: boolean; mode: "partner" | "instance" }
+  >(null);
+
+  // The landlord must have GoCardless ready (their own account when hosted).
+  useEffect(() => {
+    if (!open || !leaseId) {
+      setGcBlock(null);
+      return;
+    }
+    let cancelled = false;
+    fetch(`${apiUrl}/api/v1/gocardless/status?leaseId=${encodeURIComponent(leaseId)}`, {
+      credentials: "include",
+    })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((json) => {
+        if (cancelled || !json?.data) return;
+        const d = json.data;
+        setGcBlock(
+          d.available ? null : { code: d.code || "", isOwnAccount: !!d.isOwnAccount, mode: d.mode }
+        );
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [open, leaseId, apiUrl]);
+
+  const blockMessage = (block: { code: string; isOwnAccount: boolean; mode: string }) =>
+    block.mode === "instance"
+      ? t("notConfiguredSelf")
+      : block.code === "GOCARDLESS_PARTNER_NOT_CONFIGURED"
+        ? t("notAvailable")
+        : block.isOwnAccount
+          ? t("notConnectedOwn")
+          : t("notConnectedOther");
 
   // Reset state when modal opens/closes
   useEffect(() => {
@@ -128,6 +167,16 @@ export function MandateSetupModal({
         onSuccess?.();
       } else {
         const data = await res.json().catch(() => ({}));
+        if (typeof data.code === "string" && data.code.startsWith("GOCARDLESS_")) {
+          // Not connected (or not available): explain instead of a raw error.
+          setGcBlock({
+            code: data.code,
+            isOwnAccount: true,
+            mode: data.code === "GOCARDLESS_NOT_CONFIGURED" ? "instance" : "partner",
+          });
+          setStep("confirm");
+          return;
+        }
         setErrorMessage(data.error || t("setupFailed"));
         setStep("error");
       }
@@ -152,8 +201,33 @@ export function MandateSetupModal({
           </DialogDescription>
         </DialogHeader>
 
+        {/* GoCardless not ready for this landlord: explain how to fix it */}
+        {gcBlock && step !== "success" && (
+          <div className="space-y-4">
+            <div className="flex items-start gap-2 rounded-lg border border-amber-500/50 bg-amber-50 p-3 dark:bg-amber-950/30">
+              <AlertCircle className="h-5 w-5 text-amber-600 mt-0.5 shrink-0" />
+              <div className="space-y-1 text-sm">
+                <p className="font-medium">{t("notConnectedTitle")}</p>
+                <p className="text-muted-foreground">{blockMessage(gcBlock)}</p>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => onOpenChange(false)}>
+                {t("cancel")}
+              </Button>
+              {gcBlock.mode === "partner" &&
+                gcBlock.code === "GOCARDLESS_NOT_CONNECTED" &&
+                gcBlock.isOwnAccount && (
+                  <Button asChild>
+                    <Link href="/settings?tab=gocardless">{t("goToSettings")}</Link>
+                  </Button>
+                )}
+            </div>
+          </div>
+        )}
+
         {/* Step 1: Select tenant */}
-        {step === "select" && (
+        {!gcBlock && step === "select" && (
           <div className="space-y-4">
             <div className="space-y-2">
               <Label>{t("selectTenant")}</Label>
@@ -177,7 +251,7 @@ export function MandateSetupModal({
         )}
 
         {/* Step 2: Confirm and send */}
-        {step === "confirm" && selectedTenant && (
+        {!gcBlock && step === "confirm" && selectedTenant && (
           <div className="space-y-4">
             <div className="rounded-lg border p-4 space-y-2">
               <div className="flex justify-between text-sm">
