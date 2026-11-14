@@ -54,12 +54,24 @@ export type MuteNote = {
   note: string | null;
 };
 
+/** What an internal note about marking a month paid by hand (or undoing it) recorded. */
+export type PaidMarkNote = {
+  action: "marked" | "undone";
+  month: string | null;
+  method: string | null;
+  amount: number | null;
+  source: string | null;
+  markId: string | null;
+};
+
 export type PastCommunication = {
   id: string;
   /** internal: a note for the contract history, never sent to anyone. */
   audience: "tenant" | "landlord" | "internal";
   /** Set on an internal note about muting the late-payment reminders. */
   mute: MuteNote | null;
+  /** Set on an internal note about a manual paid mark or its undo. */
+  paidMark: PaidMarkNote | null;
   channel: string;
   type: string;
   recipientName: string;
@@ -164,6 +176,17 @@ export function toPastCommunication(
           note: str(meta.note),
         }
       : null;
+  const paidMark: PaidMarkNote | null =
+    internal && meta.kind === "paid_mark"
+      ? {
+          action: action === "undone" ? "undone" : "marked",
+          month: str(meta.month),
+          method: str(meta.method),
+          amount: typeof meta.amount === "number" ? meta.amount : null,
+          source: str(meta.source),
+          markId: str(meta.markId),
+        }
+      : null;
   return {
     id: row.id,
     audience: internal
@@ -172,6 +195,7 @@ export function toPastCommunication(
         ? "landlord"
         : "tenant",
     mute,
+    paidMark,
     channel: row.channel,
     type: row.type,
     recipientName: row.recipientName,

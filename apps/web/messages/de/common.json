@@ -1967,5 +1967,44 @@
   "flandersAnnounced": {
     "notice": "Von der flämischen Regierung angekündigt: ab {year} möglicherweise keine Indexierung mehr für EPC-Label {labels}. Das ist noch kein Gesetz; Rentular wendet es erst an, wenn das Dekret verabschiedet ist.",
     "or": "oder"
+  },
+  "manualMark": {
+    "undo": "Rückgängig",
+    "confirm": "Markierung als bezahlt für {month} rückgängig machen? Der Monat ist dann wieder offen, genau wie vor der Markierung. Bereits gesendete Erinnerungen bleiben im Verlauf.",
+    "undone": "Markierung als bezahlt rückgängig gemacht. Der Monat ist wieder offen.",
+    "already": "Diese Markierung als bezahlt wurde bereits rückgängig gemacht.",
+    "failed": "Die Markierung als bezahlt konnte nicht rückgängig gemacht werden.",
+    "forbidden": "Nur ein Eigentümer, Miteigentümer oder Verwalter kann eine Markierung als bezahlt rückgängig machen.",
+    "badge": "Manuell markiert",
+    "markedBy": "Manuell als bezahlt markiert von {name} am {date}",
+    "markedOn": "Manuell als bezahlt markiert am {date}",
+    "cardTitle": "Manuell als bezahlt markiert",
+    "cardHint": "Monate, die von Hand als bezahlt markiert wurden. Rückgängig setzt den Monat genau so zurück, wie er war.",
+    "blocked": {
+      "bank_matched": "Kann nicht mehr rückgängig gemacht werden: Die Zahlung wurde inzwischen einer Banktransaktion zugeordnet. Lösen Sie zuerst die Transaktion, oder korrigieren Sie den Monat im Kontobuch.",
+      "allocated": "Kann nicht mehr rückgängig gemacht werden: Dieser Zahlung wurde im Kontobuch Geld zugewiesen. Entfernen Sie zuerst diese Zuweisung im Kontobuch.",
+      "changed": "Kann nicht mehr rückgängig gemacht werden: Die Zahlung wurde geändert, nachdem sie als bezahlt markiert wurde. Korrigieren Sie sie von Hand auf der Zahlungsseite.",
+      "row_missing": "Kann nicht mehr rückgängig gemacht werden: Die Zahlung existiert nicht mehr.",
+      "not_latest": "Für diesen Monat gibt es eine spätere Markierung. Machen Sie zuerst diese rückgängig."
+    },
+    "method": {
+      "cash": "bar",
+      "bank_transfer": "Überweisung",
+      "other": "andere",
+      "gocardless": "Lastschrift"
+    },
+    "source": {
+      "magic_link": "über den E-Mail-Link",
+      "api": "über die API",
+      "mcp": "über MCP",
+      "overview": "",
+      "other": ""
+    },
+    "note": {
+      "marked": "{month} manuell als bezahlt markiert ({method}) von {name}",
+      "markedNoName": "{month} manuell als bezahlt markiert ({method})",
+      "undone": "Markierung als bezahlt für {month} rückgängig gemacht von {name}",
+      "undoneNoName": "Markierung als bezahlt für {month} rückgängig gemacht"
+    }
   }
 }

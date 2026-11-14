@@ -70,6 +70,11 @@ import {
   ReminderMuteDialog,
   type ReminderMuteInfo,
 } from "@/components/leases/ReminderMute";
+import {
+  ManualMarkUndoButton,
+  undoManualMark,
+  type ManualMarkInfo,
+} from "@/components/payments/ManualMarkUndo";
 
 /** The next rent due date after today for a payment day (1..28). */
 function nextRentDue(paymentDay: number | null | undefined, today: string): string {
@@ -97,6 +102,8 @@ interface Payment {
   mute: ReminderMuteInfo | null;
   /** Due date of the contract's next rent, for the "next rent" choice. */
   nextDueDate: string | null;
+  /** The row was marked paid by hand: the mark, and whether it can be undone. */
+  manualMark: ManualMarkInfo | null;
 }
 
 interface LeaseOption {
@@ -242,6 +249,7 @@ export default function PaymentsPage() {
   const t = useTranslations("payments");
   const tc = useTranslations("dashboard");
   const tm = useTranslations("reminderMute");
+  const tu = useTranslations("manualMark");
   const [muteFor, setMuteFor] = useState<Payment | null>(null);
   const searchParams = useSearchParams();
   const [showIgnored, setShowIgnored] = useState(false);
@@ -377,6 +385,7 @@ export default function PaymentsPage() {
             leaseId: p.leaseId,
             mute: info.mute,
             nextDueDate: info.nextDueDate,
+            manualMark: (p.manualMark as ManualMarkInfo | null) ?? null,
           } as Payment;
         })
       );
@@ -512,7 +521,25 @@ export default function PaymentsPage() {
         credentials: "include",
       });
       if (res.ok) {
-        toast.success(tc("toast.updated") || "Marked paid");
+        const markId = (await res.json().catch(() => ({})))?.data?.markId as string | null | undefined;
+        const leaseId = payments.find((p) => p.id === paymentId)?.leaseId;
+        // A fresh mark can be undone right from the toast for a few seconds.
+        toast.success(
+          tc("toast.updated") || "Marked paid",
+          markId && leaseId
+            ? {
+                duration: 10000,
+                action: {
+                  label: tu("undo"),
+                  onClick: () => {
+                    void undoManualMark(tu, { leaseId, markId }).then((ok) => {
+                      if (ok) void fetchLeases();
+                    });
+                  },
+                },
+              }
+            : undefined,
+        );
         fetchLeases();
       } else {
         const j = await res.json().catch(() => ({}));
@@ -532,7 +559,18 @@ export default function PaymentsPage() {
         {t("restore")}
       </Button>
     ) : payment.status === "paid" ? (
-      <span className="text-xs text-muted-foreground">{t("paidLabel")}</span>
+      payment.manualMark ? (
+        <div className="flex items-center justify-end gap-2">
+          <span className="text-xs text-muted-foreground">{t("paidLabel")}</span>
+          <ManualMarkUndoButton
+            mark={payment.manualMark}
+            label={`${payment.propertyName} · ${payment.tenantName}`}
+            onUndone={fetchLeases}
+          />
+        </div>
+      ) : (
+        <span className="text-xs text-muted-foreground">{t("paidLabel")}</span>
+      )
     ) : (
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
