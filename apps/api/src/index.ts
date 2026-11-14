@@ -122,6 +122,8 @@ for (const prefix of protectedPrefixes) {
     if (c.req.path.endsWith("/bank-connections/callback")) return next();
     // Same for the Enable Banking callback (state JWT bound to the landlord).
     if (c.req.path.endsWith("/bank-connections/enable-banking/callback")) return next();
+    // Same for the GoCardless partner connect callback.
+    if (c.req.path.endsWith("/gocardless/connect/callback")) return next();
     return requireAuth(c, next);
   });
   // A read-scoped PAT gets 403 on any state-changing method under a protected
