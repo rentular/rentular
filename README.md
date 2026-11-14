@@ -129,7 +129,15 @@ pnpm lint
 # Unit tests (vitest)
 pnpm --filter @rentular/api test
 pnpm --filter @rentular/mcp-server test
+
+# Browser tests (Chromium and WebKit, throwaway local stack, needs Docker)
+e2e/run-local.sh
 ```
+
+The browser tests type into every form field one key at a time and fail when
+the cursor leaves the field. How operations runs them nightly on a separate
+host, and the weekly manual checklist, is in
+[docs/TESTING-OPERATIONS.md](docs/TESTING-OPERATIONS.md).
 
 ## Belgian Rental Law
 

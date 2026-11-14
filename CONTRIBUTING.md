@@ -34,7 +34,14 @@ pnpm --filter @rentular/web lint
 
 # Formatting
 pnpm format
+
+# Browser tests, when you touch the web app (needs Docker)
+e2e/run-local.sh
 ```
+
+The browser tests and how they run on the operations test host are described
+in [docs/TESTING-OPERATIONS.md](docs/TESTING-OPERATIONS.md). A new form or
+dialog should be added to the focus sweep in `e2e/src/suites/`.
 
 Add or update a vitest test next to the code you change (API tests live in
 `__tests__` folders under `apps/api/src`). A pull request should leave the

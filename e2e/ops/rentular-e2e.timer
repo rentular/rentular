@@ -1,0 +1,11 @@
+# Runs the Rentular browser tests every night at 03:30.
+[Unit]
+Description=Nightly Rentular browser tests
+
+[Timer]
+OnCalendar=*-*-* 03:30:00
+RandomizedDelaySec=10min
+Persistent=false
+
+[Install]
+WantedBy=timers.target
