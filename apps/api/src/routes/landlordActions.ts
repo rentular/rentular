@@ -3,7 +3,9 @@
  * that email carries a signed token (see lib/landlordActionToken). No login is
  * required: the token is the authentication. Actions are idempotent.
  *
- *   paid   -> mark the payment paid
+ *   paid   -> mark the payment paid (recorded as a manual mark); the page
+ *             offers an undo link while the email link is valid
+ *   unpaid -> undo that mark (asks to confirm first, ?confirm=1 does it)
  *   wait   -> acknowledge, do nothing (no reminder)
  *   remind -> send a reminder to the tenant (reuses the follow-up sender)
  *             ?channel=sms sends it as an SMS instead of email
@@ -32,7 +34,9 @@ import {
   properties,
   users,
 } from "@rentular/db";
-import { verifyLandlordActionToken } from "../lib/landlordActionToken";
+import { signLandlordUndoToken, verifyLandlordActionToken } from "../lib/landlordActionToken";
+import { markPaymentPaid, undoMonthPaid } from "../services/manualMarks";
+import { drizzleMarkStore, loadLeaseForMark, loadMarkViews } from "../services/manualMarksStore";
 import { sendReminder, DEFAULT_SETTINGS } from "../services/paymentFollowUp";
 import { getLandlordNotificationRecipients } from "../lib/notificationRecipients";
 import { getLeaseEmailRecipients, mergeCc } from "../lib/leaseRecipients";
@@ -108,6 +112,59 @@ function fmtDate(d: string): string {
 function renderHtml(c: Context, lang: string, bodyHtml: string) {
   const html = `<!doctype html><html lang="${lang}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Rentular</title><style>body{font-family:system-ui,-apple-system,sans-serif;background:#f5f5f7;display:flex;min-height:100vh;align-items:center;justify-content:center;margin:0;padding:1rem}.card{background:#fff;padding:2rem 2.5rem;border-radius:14px;box-shadow:0 6px 24px rgba(0,0,0,.08);max-width:480px;text-align:center}h1{font-size:1.25rem;margin:0 0 .75rem;color:#111}p{color:#444;line-height:1.55;margin:0 0 .6rem}.detail{background:#f5f5f7;border-radius:10px;padding:.75rem 1rem;margin:.75rem 0;text-align:left;font-size:.95rem;color:#333}.muted{color:#777;font-size:.85rem}</style></head><body><div class="card"><h1>Rentular</h1>${bodyHtml}</div></body></html>`;
   return c.html(html);
+}
+
+type UndoKey = "prompt" | "button" | "confirmTitle" | "confirmButton" | "undone" | "already" | "bankMatched" | "changed";
+
+const UNDO_MESSAGES: Record<string, Record<UndoKey, string>> = {
+  en: {
+    prompt: "Not paid after all?",
+    button: "Undo",
+    confirmTitle: "Undo the paid mark? The rent will be open again, as before.",
+    confirmButton: "Yes, undo",
+    undone: "The paid mark was undone. The rent is open again.",
+    already: "This paid mark was already undone.",
+    bankMatched: "This payment has since been matched to a bank transaction, so it can no longer be undone here. Correct it in Rentular.",
+    changed: "This payment was changed after it was marked paid, so it can no longer be undone here. Correct it in Rentular.",
+  },
+  nl: {
+    prompt: "Toch niet betaald?",
+    button: "Ongedaan maken",
+    confirmTitle: "Markering als betaald ongedaan maken? De huur staat dan weer open, zoals voordien.",
+    confirmButton: "Ja, ongedaan maken",
+    undone: "De markering als betaald is ongedaan gemaakt. De huur staat weer open.",
+    already: "Deze markering als betaald was al ongedaan gemaakt.",
+    bankMatched: "Deze betaling is intussen gekoppeld aan een banktransactie, dus dit kan hier niet meer ongedaan gemaakt worden. Corrigeer het in Rentular.",
+    changed: "Deze betaling is gewijzigd nadat ze als betaald werd gemarkeerd, dus dit kan hier niet meer ongedaan gemaakt worden. Corrigeer het in Rentular.",
+  },
+  fr: {
+    prompt: "Finalement pas payé ?",
+    button: "Annuler",
+    confirmTitle: "Annuler le marquage comme payé ? Le loyer sera de nouveau ouvert, comme avant.",
+    confirmButton: "Oui, annuler",
+    undone: "Le marquage comme payé a été annulé. Le loyer est de nouveau ouvert.",
+    already: "Ce marquage comme payé avait déjà été annulé.",
+    bankMatched: "Ce paiement a depuis été rapproché d'une transaction bancaire, il ne peut donc plus être annulé ici. Corrigez-le dans Rentular.",
+    changed: "Ce paiement a été modifié après avoir été marqué comme payé, il ne peut donc plus être annulé ici. Corrigez-le dans Rentular.",
+  },
+  de: {
+    prompt: "Doch nicht bezahlt?",
+    button: "Rückgängig",
+    confirmTitle: "Markierung als bezahlt rückgängig machen? Die Miete ist dann wieder offen, wie vorher.",
+    confirmButton: "Ja, rückgängig machen",
+    undone: "Die Markierung als bezahlt wurde rückgängig gemacht. Die Miete ist wieder offen.",
+    already: "Diese Markierung als bezahlt wurde bereits rückgängig gemacht.",
+    bankMatched: "Diese Zahlung wurde inzwischen einer Banktransaktion zugeordnet und kann hier nicht mehr rückgängig gemacht werden. Korrigieren Sie sie in Rentular.",
+    changed: "Diese Zahlung wurde geändert, nachdem sie als bezahlt markiert wurde, und kann hier nicht mehr rückgängig gemacht werden. Korrigieren Sie sie in Rentular.",
+  },
+};
+
+function undoText(lang: string, key: UndoKey): string {
+  return (UNDO_MESSAGES[lang] || UNDO_MESSAGES.en!)[key];
+}
+
+function actionButton(href: string, label: string): string {
+  return `<a href="${esc(href)}" style="display:inline-block;margin:.25rem;background:#fff;color:#111;border:1px solid #ccc;padding:.6rem 1.1rem;border-radius:8px;text-decoration:none">${esc(label)}</a>`;
 }
 
 function renderKey(c: Context, lang: string, key: MsgKey) {
@@ -450,10 +507,14 @@ landlordActionsRouter.get("/:token", async (c) => {
   const channel = c.req.query("channel");
   let action: string;
   let paymentId: string;
+  let markId: string | null;
+  let exp: number | null;
   try {
     const decoded = await verifyLandlordActionToken(token);
     action = decoded.action;
     paymentId = decoded.paymentId;
+    markId = decoded.markId;
+    exp = decoded.exp;
   } catch {
     return renderKey(c, "en", "invalid");
   }
@@ -476,10 +537,55 @@ landlordActionsRouter.get("/:token", async (c) => {
 
   try {
     if (action === "paid") {
-      await db
-        .update(payments)
-        .set({ status: "paid", paidDate: todayInZone(), updatedAt: new Date() })
-        .where(eq(payments.id, paymentId));
+      // Recorded as a manual mark by the landlord the email went to, so it
+      // can be undone, also from this page.
+      const lease = await loadLeaseForMark(db, rows[0].leaseId);
+      if (!lease) return renderKey(c, lang, "notfound");
+      const marked = await markPaymentPaid(drizzleMarkStore(db), {
+        lease,
+        paymentId,
+        paidDate: todayInZone(),
+        actor: rows[0].ownerId,
+        source: "magic_link",
+      });
+      let undoMarkId = marked?.markId ?? null;
+      if (!undoMarkId) {
+        // Clicked again: offer to undo the mark this row already has.
+        const views = await loadMarkViews(db, { paymentIds: [paymentId] });
+        undoMarkId = views.find((v) => v.undoable)?.id ?? null;
+      }
+      const table = MESSAGES[lang] || MESSAGES.en!;
+      let html = `<p>${esc(table.paid)}</p>`;
+      if (undoMarkId) {
+        const base = (process.env.WEB_URL || "https://www.rentular.com").replace(/\/$/, "");
+        const until = exp ?? Math.floor(Date.now() / 1000) + 21 * 86_400;
+        const undoToken = await signLandlordUndoToken(paymentId, undoMarkId, until);
+        html += `<p class="muted" style="margin-top:1rem">${esc(undoText(lang, "prompt"))}</p><p>${actionButton(`${base}/api/v1/landlord-action/${undoToken}`, undoText(lang, "button"))}</p>`;
+      }
+      return renderHtml(c, lang, html);
+    } else if (action === "unpaid") {
+      // Two steps, so a link checker opening the page never undoes anything.
+      if (c.req.query("confirm") !== "1") {
+        const base = (process.env.WEB_URL || "https://www.rentular.com").replace(/\/$/, "");
+        return renderHtml(
+          c,
+          lang,
+          `<p>${esc(undoText(lang, "confirmTitle"))}</p><p>${actionButton(`${base}/api/v1/landlord-action/${token}?confirm=1`, undoText(lang, "confirmButton"))}</p>`,
+        );
+      }
+      const lease = await loadLeaseForMark(db, rows[0].leaseId);
+      const store = drizzleMarkStore(db);
+      const mark = markId ? await store.getMark(markId) : null;
+      if (!lease || !mark || mark.paymentId !== paymentId) return renderKey(c, lang, "notfound");
+      const result = await undoMonthPaid(store, { lease, markId: mark.id, actor: rows[0].ownerId });
+      const key: UndoKey = result.ok
+        ? result.already
+          ? "already"
+          : "undone"
+        : result.code === "bank_matched"
+          ? "bankMatched"
+          : "changed";
+      return renderHtml(c, lang, `<p>${esc(undoText(lang, key))}</p>`);
     } else if (action === "off") {
       await db
         .update(leases)
