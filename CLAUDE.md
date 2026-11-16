@@ -14,7 +14,7 @@ A Belgian rental property management platform for landlords and property manager
 - **Market**: Belgian rental law context (health index, SEPA, residential + commercial leases)
 - **Timeline**: ASAP — launch as soon as everything works
 - **Payments**: GoCardless for rent collection (SEPA direct debit), Stripe for Rentular subscription billing only
-- **Hosting**: Must run on Proxmox/Hetzner VPS with Docker
+- **Hosting**: Production runs on Hetzner (m1) with PM2 behind Caddy; Docker Compose is supported for self-hosting and e2e
 <!-- GSD:project-end -->
 
 <!-- GSD:stack-start source:codebase/STACK.md -->
@@ -127,19 +127,18 @@ A Belgian rental property management platform for landlords and property manager
 - Used in Next.js frontend: `@/components/LanguageSwitcher`, `@/lib/auth`
 - No aliases in API (uses relative imports)
 ## Error Handling
-- Graceful fallback to in-memory store when database is unavailable
-- Routes contain try-catch blocks that fall back to `memoryStore` if database fails
-- Logging to console with context prefix: `console.error("DB read failed, falling back to memory:", err)`
+- Database errors fail fast: routes return 500 and log with a context prefix, there is no in-memory fallback
+- Logging to console with context prefix: `console.error("[Properties] DB insert failed:", err)`
 - Errors from operations result in HTTP status codes: `c.json({ error: "Property not found" }, 404)`
 - Middleware throws errors for validation: `throw new Error("Authenticated user is required")`
 ## Logging
 - Context prefix in square brackets: `[Properties]`, `[Auth]`, `[EmailQueue]`, `[SmsQueue]`
-- Info-level logs: `console.log("[Properties] Database unavailable, using in-memory store")`
-- Error-level logs: `console.error("DB insert failed, using memory store:", err)`
+- Info-level logs: `console.log("[Properties] Created property", id)`
+- Error-level logs: `console.error("[Properties] DB insert failed:", err)`
 - Describes operation and status: `console.log(\`[EmailQueue] Sending email to ${to}: "${subject}"\`)`
 ## Comments
 - Explaining algorithm or complex business logic (e.g., Belgian rent indexation)
-- Clarifying non-obvious decisions (e.g., why database fallback is needed)
+- Clarifying non-obvious decisions (e.g., why a webhook is stored before it is processed)
 - Linking to external references: `// See: @auth/core/jwt.js getDerivedEncryptionKey()`
 - TODO comments indicating incomplete implementation
 - Used for exported functions and queue operations
@@ -209,7 +208,7 @@ A Belgian rental property management platform for landlords and property manager
 - Used by: Both apps for consistent data definitions
 ## Data Flow
 - Frontend state: React hooks (useState) for form state, client-side caching via fetch
-- Backend state: Database as source of truth; in-memory fallback (memoryStore) for testing/development
+- Backend state: Database as the only source of truth (no in-memory fallback)
 - Background jobs: Redis queue for reliability; BullMQ handles retries and scheduling
 ## Key Abstractions
 - Singleton pattern: returns cached Drizzle instance
@@ -230,7 +229,7 @@ A Belgian rental property management platform for landlords and property manager
 - Landlord report: `apps/api/src/jobs/landlordReportWorker.ts` (cron-scheduled)
 ## Error Handling
 - Try-catch wraps database operations
-- On error: logs error, falls back to in-memory store if available
+- On error: logs error with context prefix and fails fast (no in-memory fallback)
 - Returns 404 or 500 as appropriate
 - Missing/invalid JWT: authMiddleware sets userId to null
 - Protected routes check for userId, return 401 if missing
