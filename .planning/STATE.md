@@ -4,7 +4,7 @@ milestone: v1.0
 milestone_name: milestone
 status: milestone_complete
 stopped_at: Phase 11.1 context gathered
-last_updated: "2026-10-14T07:36:48.001Z"
+last_updated: "2026-11-17T00:52:00.000Z"
 progress:
   total_phases: 13
   completed_phases: 11
@@ -238,6 +238,7 @@ None yet.
 | 261114-wal | Wallonia PEB 2022-2023 adapted rent carried forward per lease (official examples as tests); announced Flemish 2028 ban no longer enforced, shown as notice | 2026-11-14 | 4e1eac2 | [261114-wal-wallonia-peb-and-flemish-plan](./quick/261114-wal-wallonia-peb-and-flemish-plan/) |
 | 261114-gcx | GoCardless per landlord on hosted (partner OAuth, encrypted token, revoke, webhooks by organisation), instance token only for self-hosted; access checks added to mandate/customer routes | 2026-11-14 | a2805fd | [261114-gcx-gocardless-per-landlord](./quick/261114-gcx-gocardless-per-landlord/) |
 | 261114-umk | Undo for mark month paid everywhere (overview, payments, contract page, toast, email link, API, MCP), exact restore from recorded before-state, internal notes | 2026-11-14 | 07834ac | [261114-umk-undo-mark-month-paid](./quick/261114-umk-undo-mark-month-paid/) |
+| 261117-11m | Point the CLAUDE.md GSD enforcement block at the /bm: command prefix | 2026-11-17 | dc7845f | [261117-11m-point-the-claude-md-gsd-enforcement-bloc](./quick/261117-11m-point-the-claude-md-gsd-enforcement-bloc/) |
 | 2026-10-29 | fast | sendWhatsApp can send a picture, video or document through the bridge (bridge on muncher updated too) | ✅ |
 
 ## Session Continuity
