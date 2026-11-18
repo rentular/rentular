@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: milestone_complete
-stopped_at: Phase 11.1 context gathered
-last_updated: "2026-11-18T12:09:17.960Z"
+stopped_at: Phase 11.2 context gathered
+last_updated: "2026-11-18T12:13:23.541Z"
 progress:
   total_phases: 15
   completed_phases: 11
@@ -244,9 +244,9 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-10-14T07:36:47.991Z
-Stopped at: Phase 11.1 context gathered
-Resume file: .planning/phases/11.1-launch-blockers-settings-save-onboarding-jwt-sepa-collect-tr/11.1-CONTEXT.md
+Last session: 2026-11-18T12:13:23.529Z
+Stopped at: Phase 11.2 context gathered
+Resume file: .planning/phases/11.2-aangetekende-ingebrekestelling-genereren-bij-huurachterstal-/11.2-CONTEXT.md
 | 2026-10-20 | fast | Belgian amount notation (€ 1.150,00) in indexation alert digest | ✅ |
 | 2026-10-20 | fast | Indexation alert dedup keyed on latest anniversary, unapplied leases re-alerted yearly | ✅ |
 | 2026-10-31 | fast | Wider indexation apply dialog, NL/FR accent fixes | ✅ |
