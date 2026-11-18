@@ -4,7 +4,7 @@ milestone: v1.0
 milestone_name: milestone
 status: milestone_complete
 stopped_at: "Phase 11.2 planned: 9 plans in 5 waves, plan-checker passed"
-last_updated: "2026-11-18T13:08:34.815Z"
+last_updated: "2026-11-18T22:34:09.421Z"
 progress:
   total_phases: 15
   completed_phases: 11
@@ -20,13 +20,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-22)
 
 **Core value:** Landlords can automatically collect rent via SEPA direct debit and track all their properties in one affordable, multilingual platform.
-**Current focus:** Milestone complete
+**Current focus:** Phase 11.2: aangetekende-ingebrekestelling-genereren-bij-huurachterstal-
 
 ## Current Position
 
-Phase: 11.2
+Phase: 11.2 (aangetekende-ingebrekestelling-genereren-bij-huurachterstal-) — EXECUTING
 Next: /bm:execute-phase 11.2
-Plan: 9 plans in 5 waves, ready to execute
+Plan: 1 of 9
 
 ## Performance Metrics
 
