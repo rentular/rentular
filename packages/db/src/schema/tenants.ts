@@ -25,6 +25,15 @@ export const tenants = mysqlTable("tenants", {
   preferredChannel: mysqlEnum("preferred_channel", ["email", "sms", "whatsapp"])
     .default("email")
     .notNull(),
+  // Correspondence address, overrides the rented property's address on letters.
+  // correspondenceCountry has no default on purpose, so "no correspondence
+  // address on file" stays distinguishable from "lives in Belgium".
+  correspondenceStreet: varchar("correspondence_street", { length: 255 }),
+  correspondenceStreetNumber: varchar("correspondence_street_number", { length: 20 }),
+  correspondenceBox: varchar("correspondence_box", { length: 20 }),
+  correspondencePostalCode: varchar("correspondence_postal_code", { length: 10 }),
+  correspondenceCity: varchar("correspondence_city", { length: 255 }),
+  correspondenceCountry: varchar("correspondence_country", { length: 2 }),
   // Belgian-specific
   nationalRegister: varchar("national_register", { length: 20 }), // Rijksregisternummer
   iban: varchar("iban", { length: 34 }),

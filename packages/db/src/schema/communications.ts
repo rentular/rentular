@@ -39,6 +39,7 @@ export const communications = mysqlTable("communications", {
     "due_date_sms",     // Short nudge to the tenant on the due date
     "tenant_reply",     // Email the tenant sent back to the contract's reply address
     "internal_note",    // Note for the contract history only, never sent to anyone
+    "formal_notice",    // Registered formal notice of default, generated as a PDF and posted by the landlord
   ]).notNull(),
   // outbound: sent by the platform. inbound: received, e.g. a tenant reply.
   direction: mysqlEnum("direction", ["outbound", "inbound"]).default("outbound").notNull(),
