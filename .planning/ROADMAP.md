@@ -257,6 +257,23 @@ Plans:
 
 ## Backlog
 
+### Phase 11.2: Aangetekende ingebrekestelling genereren bij huurachterstal: afdrukbare brief in NL/FR/DE/EN met achterstallige maanden, rente en kosten, betaaltermijn, download in de app, gelogd als communications channel=letter, plus postadressen in het schema en echte documentrendering (INSERTED)
+
+**Goal:** A landlord can generate a print-ready aangetekende ingebrekestelling (formal notice of default) for a contract in rent arrears, in the tenant's language, containing everything Belgian law and a vrederechter expect: sender and addressee postal addresses, the contract reference, the arrears per month, interest and late fee, a payment deadline, and the warning that judicial dissolution will be sought. The letter is downloadable, the landlord posts it registered, and the app logs it as a `letter` communication so the arrears file is complete when the case goes to the justice of the peace.
+**Requirements**: TBD
+**Depends on:** Phase 11
+**Plans:** 0 plans
+
+**Known starting points (from code review 2026-11-18):**
+- Nothing like it exists. Reminders stop at friendly/formal/final e-mail/SMS/WhatsApp (`apps/api/src/services/paymentFollowUp.ts`, `manualReminder.ts`, `POST /api/v1/payments/send-reminder`).
+- `communications.channel` already has `letter`; `type` has no formal-notice value yet.
+- `generateLatePaymentPdf()` (paymentFollowUp.ts:351) returns plain text under a `.pdf` filename and carries its own TODO. No PDF library in `apps/api/package.json`; `playwright` is already a dependency (used by `smovinScraper.ts`), so Chromium availability on m1 needs checking before relying on it.
+- Interest and fee maths to reuse: `calculateInterest()`, `latePaymentFeeEnabled/Amount/Enforcement`, `contractBalance.ts`.
+- Address gap: `properties` has street/number/postalCode/city/country, but `users` (landlord sender) and `tenants` (addressee, which may differ from the rented property) have no postal address. Schema addition needed, and `drizzle-baseline-stale` means `db:push`, not `db:generate`.
+
+Plans:
+- [ ] TBD (run /bm:plan-phase 11.2 to break down)
+
 ### Phase 11.1: Launch blockers: settings save, onboarding JWT, SEPA collect trigger (per-lease button + automatic collection on due date), indexation re-schedule, bank matcher matchedPaymentId (INSERTED)
 
 **Goal:** Close the v1.0 audit gaps (see `.planning/v1.0-MILESTONE-AUDIT.md`) so a new landlord can sign up, finish onboarding, configure reminders and actually collect rent by SEPA.

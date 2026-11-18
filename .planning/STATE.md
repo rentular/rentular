@@ -4,13 +4,13 @@ milestone: v1.0
 milestone_name: milestone
 status: milestone_complete
 stopped_at: Phase 11.1 context gathered
-last_updated: "2026-11-17T00:52:00.000Z"
+last_updated: "2026-11-18T12:09:17.960Z"
 progress:
-  total_phases: 13
+  total_phases: 15
   completed_phases: 11
-  total_plans: 51
+  total_plans: 63
   completed_plans: 51
-  percent: 85
+  percent: 73
 ---
 
 # Project State
@@ -24,8 +24,8 @@ See: .planning/PROJECT.md (updated 2026-03-22)
 
 ## Current Position
 
-Phase: 11.1
-Next: /bm:discuss-phase 11.1
+Phase: 11.2
+Next: /bm:plan-phase 11.2
 Plan: Not started
 
 ## Performance Metrics
@@ -94,6 +94,7 @@ Plan: Not started
 - Phase 10 added: Deploy to Hetzner (m1) — production deployment (Docker web+api, nginx reverse proxy + LE TLS, env/secrets, atomic-release deploy; folds in Stripe-boot and API-env bug fixes). Depends on Phase 9 incl. 09-05.
 - Phase 11.1 inserted after Phase 11: Launch blockers from v1.0 re-audit: NTF-05 settings save, ONB-03 onboarding JWT refresh, PAY-04 SEPA collection (per-lease button + automatic on due date), indexation re-schedules expected payments, BANK-MATCHER matchedPaymentId (URGENT)
 - Phase 12 added: Billing and plan limits aligned with the public pricing (Onbeperkt EUR 19/month excl. VAT, 3-property free limit, SMS on Onbeperkt only, bank tracking 5 euro per account)
+- Phase 11.2 inserted after Phase 11: Aangetekende ingebrekestelling genereren bij huurachterstal (URGENT)
 
 ### Decisions
 
