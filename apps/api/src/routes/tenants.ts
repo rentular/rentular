@@ -28,7 +28,36 @@ const createTenantSchema = z.object({
   bankAccounts: z.array(z.string()).optional(),
   avatar: z.string().optional().default(""),
   notes: z.string().optional().default(""),
+  // Correspondence address, used on letters when it differs from the rented
+  // property. The bounds are the column widths, so an oversized value is a 400
+  // and never a truncated row.
+  correspondenceStreet: z.string().max(255).optional(),
+  correspondenceStreetNumber: z.string().max(20).optional(),
+  correspondenceBox: z.string().max(20).optional(),
+  correspondencePostalCode: z.string().max(10).optional(),
+  correspondenceCity: z.string().max(255).optional(),
+  correspondenceCountry: z.union([z.string().length(2), z.literal("")]).optional(),
 });
+
+/** Correspondence address keys, in column order. */
+const CORRESPONDENCE_FIELDS = [
+  "correspondenceStreet",
+  "correspondenceStreetNumber",
+  "correspondenceBox",
+  "correspondencePostalCode",
+  "correspondenceCity",
+  "correspondenceCountry",
+] as const;
+
+/** Trimmed value, or null for an empty one. The country is upper-cased. */
+function normalizeCorrespondence(
+  field: (typeof CORRESPONDENCE_FIELDS)[number],
+  value: string
+): string | null {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  return field === "correspondenceCountry" ? trimmed.toUpperCase() : trimmed;
+}
 
 export const tenantsRouter = new Hono();
 
@@ -189,6 +218,18 @@ tenantsRouter.post("/", zValidator("json", createTenantSchema), async (c) => {
     nationalRegister: data.nationalRegister || null,
     iban: ibans[0] || null,
     notes: data.notes || null,
+    correspondenceStreet: normalizeCorrespondence("correspondenceStreet", data.correspondenceStreet ?? ""),
+    correspondenceStreetNumber: normalizeCorrespondence(
+      "correspondenceStreetNumber",
+      data.correspondenceStreetNumber ?? ""
+    ),
+    correspondenceBox: normalizeCorrespondence("correspondenceBox", data.correspondenceBox ?? ""),
+    correspondencePostalCode: normalizeCorrespondence(
+      "correspondencePostalCode",
+      data.correspondencePostalCode ?? ""
+    ),
+    correspondenceCity: normalizeCorrespondence("correspondenceCity", data.correspondenceCity ?? ""),
+    correspondenceCountry: normalizeCorrespondence("correspondenceCountry", data.correspondenceCountry ?? ""),
   });
   await syncTenantBankAccounts(id, ibans);
 
@@ -247,6 +288,11 @@ tenantsRouter.patch(
 
     const { bankAccount, bankAccounts, ...rest } = data;
     const updates: Record<string, unknown> = { ...rest };
+    for (const field of CORRESPONDENCE_FIELDS) {
+      const value = rest[field];
+      if (value === undefined) continue;
+      updates[field] = normalizeCorrespondence(field, value);
+    }
     if (bankAccounts !== undefined) {
       const ibans = bankAccounts
         .map((i) => normalizeIban(i))
