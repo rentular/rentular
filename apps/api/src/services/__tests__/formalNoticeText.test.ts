@@ -492,9 +492,14 @@ describe.each(LANGS)("buildFormalNotice (%s)", (lang) => {
   });
 
   it("cites no statute and threatens nothing beyond the court case", () => {
+    // The word boundary matters: "maart 2026" is the Dutch month, not a
+    // citation, and ends in the same three letters as "art".
+    const citation = /\bart(icle|ikel)?\.?\s*\d/i;
+    const citationWord = /\b(art|arts|artikel|artikelen|article|articles)\b/i;
     for (const notice of everyBranch(lang)) {
-      expect(notice.body).not.toMatch(/art(icle|ikel)?\.?\s*\d/i);
-      expect(JSON.stringify(notice.document)).not.toMatch(/art(icle|ikel)?\.?\s*\d/i);
+      expect(notice.body).not.toMatch(citation);
+      expect(JSON.stringify(notice.document)).not.toMatch(citation);
+      expect(notice.body).not.toMatch(citationWord);
       for (const book of ["Book 5", "Boek 5", "Livre 5", "Buch 5"]) {
         expect(notice.body).not.toContain(book);
       }
