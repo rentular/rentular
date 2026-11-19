@@ -30,6 +30,7 @@ import { makeSettler, monthHistory, monthTotals } from "../services/monthTotals"
 import { beforeTrackingWindow, contractBalance, type ContractBalance } from "../services/contractBalance";
 import type { DeductionRow } from "../services/rentDeductions";
 import { NOTHING_OWED_ERROR, sendManualReminder } from "../services/manualReminder";
+import { generateFormalNotice } from "../services/formalNotice";
 import {
   getAccessiblePropertyIds,
   getUserPropertyRole,
@@ -1341,6 +1342,75 @@ paymentsRouter.post(
     } catch (err) {
       console.error("[Payments] manual reminder failed:", err);
       return c.json({ error: "Could not send the reminder" }, 500);
+    }
+  },
+);
+
+// Generate the registered formal notice of default for a contract in arrears:
+// one individually addressed letter per liable tenant, each returned as base64
+// inside this JSON envelope and each logged in communications as proof.
+//
+// Authorisation is the send-reminder chain, not a lighter one: the response
+// carries tenant names, their postal addresses and what they owe, so the lease
+// is authorised as an object before the service reads anything.
+paymentsRouter.post(
+  "/formal-notice",
+  zValidator(
+    "json",
+    z.object({
+      leaseId: z.string().min(1).max(64),
+      deadlineDays: z.number().int().min(1).max(90).optional(),
+      extraParagraph: z.string().max(2000).optional(),
+    }),
+  ),
+  async (c) => {
+    const userId = getRequiredUserId(c);
+    const { leaseId, deadlineDays, extraParagraph } = c.req.valid("json");
+
+    // Confirm the user can access this lease's property.
+    const leaseRow = await db
+      .select({ propertyId: leases.propertyId })
+      .from(leases)
+      .where(eq(leases.id, leaseId))
+      .limit(1);
+    if (!leaseRow[0]) return c.json({ error: "Lease not found" }, 404);
+    const accessible = await getAccessiblePropertyIds(userId);
+    if (!accessible.includes(leaseRow[0].propertyId)) {
+      return c.json({ error: "Forbidden" }, 403);
+    }
+    // T-11.2-19: a legal notice is a write, so a viewer or an accountant with
+    // property access is still refused. Write scope for API tokens and the
+    // audit record come from the global middleware on /payments.
+    const role = await getUserPropertyRole(userId, leaseRow[0].propertyId);
+    if (!role || !hasMinimumRole(role, "manager")) {
+      return c.json({ error: "Forbidden" }, 403);
+    }
+
+    try {
+      // A request authenticated by an API token (MCP tools) is logged as such.
+      const viaToken = !!c.get("tokenId");
+      const result = await generateFormalNotice({
+        leaseId,
+        deadlineDays,
+        extraParagraph,
+        trigger: { trigger: viaToken ? "api" : "manual", triggeredBy: userId },
+      });
+      if (!result.ok) {
+        return c.json({ error: result.error, code: result.code }, 400);
+      }
+      return c.json({
+        data: {
+          letters: result.letters,
+          totals: { ...result.totals, currency: "EUR" },
+          arrears: result.arrears,
+          letterDate: result.letterDate,
+          deadline: result.deadline,
+          deadlineDays: result.deadlineDays,
+        },
+      });
+    } catch (err) {
+      console.error("[Payments] formal notice failed:", err);
+      return c.json({ error: "Could not generate the formal notice" }, 500);
     }
   },
 );
