@@ -17,6 +17,7 @@ import {
   Paperclip,
   Reply,
   Send,
+  Stamp,
   StickyNote,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -26,6 +27,8 @@ import { formatDate, formatDateTime } from "@/lib/dateLocale";
 import { eur } from "@/components/overview/format";
 import { ContractBalanceCard } from "@/components/leases/ContractBalanceCard";
 import { ReminderMuteCard, type ReminderMuteInfo } from "@/components/leases/ReminderMute";
+import { FormalNoticeCard } from "@/components/leases/FormalNotice";
+import { MarkPostedDialog } from "@/components/leases/MarkPostedDialog";
 import { ManualMarksCard, monthName } from "@/components/payments/ManualMarkUndo";
 
 const PAGE_SIZE = 100;
@@ -66,6 +69,10 @@ interface PastItem {
   senderKnown?: boolean | null;
   auto?: boolean;
   attachments?: Array<{ name: string; size: number; type: string }>;
+  /** Letters only: the day the registered item was handed in at the post office. */
+  postedOn?: string | null;
+  /** Letters only: the barcode on the post office receipt. */
+  postedReference?: string | null;
   sentAt: string | null;
   createdAt: string | null;
 }
@@ -114,6 +121,7 @@ const STATUS_CLASS: Record<string, string> = {
 export default function LeaseCommunicationPage() {
   const t = useTranslations("contractComms");
   const tu = useTranslations("manualMark");
+  const tf = useTranslations("formalNotice");
   const locale = useLocale();
   const params = useParams<{ id: string }>();
   const router = useRouter();
@@ -126,6 +134,8 @@ export default function LeaseCommunicationPage() {
   const [channel, setChannel] = useState("");
   const [kind, setKind] = useState("");
   const [open, setOpen] = useState<Set<string>>(new Set());
+  // The letter whose posting is being recorded, or null when the dialog is shut.
+  const [postedTarget, setPostedTarget] = useState<PastItem | null>(null);
 
   const fetchPage = useCallback(
     async (offset: number): Promise<HistoryData | null> => {
@@ -274,6 +284,17 @@ export default function LeaseCommunicationPage() {
         : recipient;
     const trigger = inbound ? null : triggerLabel(item);
     const attachments = item.attachments ?? [];
+    // Only a formal notice is posted by hand, so only its row carries the proof.
+    const isNoticeLetter = item.channel === "letter" && item.type === "formal_notice";
+    const postingSummary =
+      isNoticeLetter && item.postedOn
+        ? item.postedReference
+          ? tf("posted.summaryWithReference", {
+              date: formatDate(item.postedOn),
+              reference: item.postedReference,
+            })
+          : tf("posted.summary", { date: formatDate(item.postedOn) })
+        : null;
     return (
       <li
         key={item.id}
@@ -312,6 +333,7 @@ export default function LeaseCommunicationPage() {
                   </>
                 )}
               </p>
+              {postingSummary && <p className="text-xs text-muted-foreground">{postingSummary}</p>}
               {trigger && <p className="text-xs text-muted-foreground">{trigger}</p>}
               {inbound && item.senderKnown === false && (
                 <p className="text-xs text-amber-700">{t("unknownSenderHint")}</p>
@@ -332,17 +354,33 @@ export default function LeaseCommunicationPage() {
           <span
             className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_CLASS[item.status] ?? "bg-muted"}`}
           >
-            {inbound ? t("status.received") : statusLabel(item.status)}
+            {inbound
+              ? t("status.received")
+              : isNoticeLetter && item.status === "queued"
+                ? tf("posted.notPosted")
+                : statusLabel(item.status)}
           </span>
         </div>
-        <button
-          type="button"
-          onClick={() => toggle(item.id)}
-          className="mt-2 flex items-center gap-1 text-xs font-medium text-navy hover:underline"
-        >
-          {isOpen ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-          {isOpen ? t("hideBody") : t("showBody")}
-        </button>
+        <div className="mt-2 flex flex-wrap items-center gap-4">
+          <button
+            type="button"
+            onClick={() => toggle(item.id)}
+            className="flex items-center gap-1 text-xs font-medium text-navy hover:underline"
+          >
+            {isOpen ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+            {isOpen ? t("hideBody") : t("showBody")}
+          </button>
+          {isNoticeLetter && (
+            <button
+              type="button"
+              onClick={() => setPostedTarget(item)}
+              className="flex items-center gap-1 text-xs font-medium text-navy hover:underline"
+            >
+              <Stamp className="h-3 w-3" />
+              {item.status === "queued" ? tf("posted.button") : tf("posted.edit")}
+            </button>
+          )}
+        </div>
         {isOpen && (
           <pre className="mt-2 max-h-96 overflow-auto whitespace-pre-wrap break-words rounded-md bg-muted p-3 font-sans text-sm">
             {item.body}
@@ -382,13 +420,20 @@ export default function LeaseCommunicationPage() {
       </div>
 
       {data && (
-        <ReminderMuteCard
-          leaseId={leaseId}
-          mute={data.mute}
-          nextDueDate={data.nextDueDate}
-          canEdit
-          onChanged={reload}
-        />
+        <>
+          <ReminderMuteCard
+            leaseId={leaseId}
+            mute={data.mute}
+            nextDueDate={data.nextDueDate}
+            canEdit
+            onChanged={reload}
+          />
+          <FormalNoticeCard
+            leaseId={leaseId}
+            label={[data.lease.propertyName, data.lease.tenantName].filter(Boolean).join(", ")}
+            onChanged={reload}
+          />
+        </>
       )}
 
       <ManualMarksCard
@@ -536,6 +581,17 @@ export default function LeaseCommunicationPage() {
           )}
         </>
       )}
+
+      <MarkPostedDialog
+        open={postedTarget !== null}
+        onOpenChange={(next) => {
+          if (!next) setPostedTarget(null);
+        }}
+        communicationId={postedTarget?.id ?? null}
+        initialPostedOn={postedTarget?.postedOn ?? null}
+        initialReference={postedTarget?.postedReference ?? null}
+        onSaved={reload}
+      />
     </div>
   );
 }

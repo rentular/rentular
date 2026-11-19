@@ -1770,7 +1770,8 @@
       "errors": {
         "failed": "The posting date could not be saved.",
         "invalid_posted_date": "Enter a date between the day the letter was made and today.",
-        "not_a_letter": "Only letters can be marked as posted."
+        "not_a_letter": "Only letters can be marked as posted.",
+        "not_markable": "This letter cannot be marked as posted, because it was not generated or was not sent."
       }
     }
   },

@@ -1770,7 +1770,8 @@
       "errors": {
         "failed": "La date de dépôt n'a pas pu être enregistrée.",
         "invalid_posted_date": "Indiquez une date entre le jour où la lettre a été créée et aujourd'hui.",
-        "not_a_letter": "Seules les lettres peuvent être marquées comme déposées."
+        "not_a_letter": "Seules les lettres peuvent être marquées comme déposées.",
+        "not_markable": "Cette lettre ne peut pas être marquée comme déposée, car elle n'a pas été générée ou n'a pas été envoyée."
       }
     }
   },

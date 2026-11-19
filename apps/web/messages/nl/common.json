@@ -1770,7 +1770,8 @@
       "errors": {
         "failed": "De verzenddatum kon niet opgeslagen worden.",
         "invalid_posted_date": "Geef een datum tussen de dag waarop de brief gemaakt is en vandaag.",
-        "not_a_letter": "Alleen brieven kunnen als verzonden gemarkeerd worden."
+        "not_a_letter": "Alleen brieven kunnen als verzonden gemarkeerd worden.",
+        "not_markable": "Deze brief kan niet als verzonden gemarkeerd worden, omdat hij niet aangemaakt of niet verzonden is."
       }
     }
   },
