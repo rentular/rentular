@@ -23,7 +23,8 @@ export type CommunicationType =
   | "landlord_notification"
   | "due_date_sms"
   | "tenant_reply"
-  | "internal_note";
+  | "internal_note"
+  | "formal_notice";
 
 /** Who set a message off. */
 export type CommunicationTrigger = "schedule" | "manual" | "magic_link" | "api";

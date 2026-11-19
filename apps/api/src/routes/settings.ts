@@ -43,11 +43,19 @@ settingsRouter.put(
       vatNumber: z.string().max(32).optional(),
       whatsappNumber: z.string().max(40).optional(),
       indexationAlertsEnabled: z.boolean().optional(),
+      // Postal address, the sender block of letters. The bounds are the column
+      // widths, so an oversized value is a 400 and never a truncated row.
+      street: z.string().max(255).optional(),
+      streetNumber: z.string().max(20).optional(),
+      box: z.string().max(20).optional(),
+      postalCode: z.string().max(10).optional(),
+      city: z.string().max(255).optional(),
+      country: z.string().length(2).optional(),
     })
   ),
   async (c) => {
-    const { landlordType, vatNumber, whatsappNumber, indexationAlertsEnabled } =
-      c.req.valid("json");
+    const body = c.req.valid("json");
+    const { landlordType, vatNumber, whatsappNumber, indexationAlertsEnabled } = body;
     const ownerId = getRequiredUserId(c);
 
     const set: {
@@ -55,6 +63,12 @@ settingsRouter.put(
       vatNumber: string | null;
       whatsappNumber?: string | null;
       indexationAlertsEnabled?: boolean;
+      street?: string | null;
+      streetNumber?: string | null;
+      box?: string | null;
+      postalCode?: string | null;
+      city?: string | null;
+      country?: string | null;
     } = { landlordType, vatNumber: vatNumber?.trim() || null };
 
     if (whatsappNumber !== undefined) {
@@ -70,12 +84,35 @@ settingsRouter.put(
       set.indexationAlertsEnabled = indexationAlertsEnabled;
     }
 
+    // Field by field, never a spread of the request body, so a stray key in the
+    // body cannot reach a column it was not meant to.
+    const ADDRESS_FIELDS = [
+      "street",
+      "streetNumber",
+      "box",
+      "postalCode",
+      "city",
+      "country",
+    ] as const;
+    for (const field of ADDRESS_FIELDS) {
+      const value = body[field];
+      if (value === undefined) continue;
+      const trimmed = value.trim();
+      set[field] = trimmed ? (field === "country" ? trimmed.toUpperCase() : trimmed) : null;
+    }
+
     await db.update(users).set(set).where(eq(users.id, ownerId));
     return c.json({
       landlordType,
       vatNumber: vatNumber ?? null,
       whatsappNumber: set.whatsappNumber ?? null,
       indexationAlertsEnabled: set.indexationAlertsEnabled ?? true,
+      street: set.street ?? null,
+      streetNumber: set.streetNumber ?? null,
+      box: set.box ?? null,
+      postalCode: set.postalCode ?? null,
+      city: set.city ?? null,
+      country: set.country ?? null,
     });
   }
 );
@@ -88,6 +125,12 @@ settingsRouter.get("/profile", async (c) => {
       vatNumber: users.vatNumber,
       whatsappNumber: users.whatsappNumber,
       indexationAlertsEnabled: users.indexationAlertsEnabled,
+      street: users.street,
+      streetNumber: users.streetNumber,
+      box: users.box,
+      postalCode: users.postalCode,
+      city: users.city,
+      country: users.country,
     })
     .from(users)
     .where(eq(users.id, ownerId))
@@ -97,6 +140,12 @@ settingsRouter.get("/profile", async (c) => {
     vatNumber: rows[0]?.vatNumber ?? "",
     whatsappNumber: rows[0]?.whatsappNumber ?? "",
     indexationAlertsEnabled: rows[0]?.indexationAlertsEnabled ?? true,
+    street: rows[0]?.street ?? "",
+    streetNumber: rows[0]?.streetNumber ?? "",
+    box: rows[0]?.box ?? "",
+    postalCode: rows[0]?.postalCode ?? "",
+    city: rows[0]?.city ?? "",
+    country: rows[0]?.country ?? "BE",
   });
 });
 
