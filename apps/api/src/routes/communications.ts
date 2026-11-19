@@ -12,6 +12,7 @@ import {
   getUserPropertyRole,
   hasMinimumRole,
 } from "../lib/propertyAccess";
+import { getScheduleTimezone, todayInZone, ymdInZone } from "../lib/timezone";
 
 const db = getDb();
 
@@ -201,6 +202,104 @@ communicationsRouter.post("/:id/resend", async (c) => {
 
   return c.json({ message: "Communication re-queued for delivery" });
 });
+
+// Record that a letter (a registered formal notice) was handed in at the post
+// office. The deadline in the letter and any later dispute run from that day,
+// which the landlord enters afterwards, so sentAt is the submitted calendar day
+// and not the moment of this request. markCommunication() cannot do this: it
+// hardcodes sentAt to now and eleven send paths depend on that, hence the
+// inline update below.
+communicationsRouter.post(
+  "/:id/posted",
+  zValidator(
+    "json",
+    z.object({
+      postedOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+      reference: z.string().max(64).optional(),
+    })
+  ),
+  async (c) => {
+    const id = c.req.param("id");
+    const userId = getRequiredUserId(c);
+    const { postedOn, reference } = c.req.valid("json");
+
+    const rows = await db.select().from(communications)
+      .where(eq(communications.id, id));
+    const row = rows[0];
+    if (!row) return c.json({ error: "Communication not found" }, 404);
+
+    // Same ownership rule as /:id/resend: a lease-linked row needs manager+ on
+    // that property, a lease-less row must belong to the caller.
+    if (row.leaseId) {
+      const lease = await db.select({ propertyId: leases.propertyId }).from(leases)
+        .where(eq(leases.id, row.leaseId));
+      if (!lease[0]) return c.json({ error: "Communication not found" }, 404);
+      const role = await getUserPropertyRole(userId, lease[0].propertyId);
+      if (!role || !hasMinimumRole(role, "manager")) {
+        return c.json({ error: "Insufficient permissions" }, 403);
+      }
+    } else if (row.ownerId !== userId) {
+      return c.json({ error: "Insufficient permissions" }, 403);
+    }
+
+    if (row.channel !== "letter") {
+      return c.json({ error: "Only letters can be marked as posted", code: "not_a_letter" }, 400);
+    }
+
+    // A queued letter is being posted for the first time; an already sent one is
+    // a correction of a mistyped date or barcode. Anything else is not a letter
+    // waiting for the post office.
+    if (row.status !== "queued" && row.status !== "sent") {
+      return c.json({ error: "This letter cannot be marked as posted", code: "not_markable" }, 400);
+    }
+
+    const invalidDate = c.json(
+      { error: "The posting date is not valid", code: "invalid_posted_date" },
+      400,
+    );
+    // Noon UTC, so the calendar day is the same in Europe/Brussels and in UTC.
+    const sentAt = new Date(`${postedOn}T12:00:00Z`);
+    if (isNaN(sentAt.getTime()) || sentAt.toISOString().slice(0, 10) !== postedOn) {
+      return invalidDate;
+    }
+    if (postedOn > todayInZone(getScheduleTimezone())) return invalidDate;
+    if (row.createdAt && postedOn < ymdInZone(new Date(row.createdAt), getScheduleTimezone())) {
+      return invalidDate;
+    }
+
+    const trimmed = reference?.trim() || null;
+    const existing = (row.metadata as Record<string, unknown> | null) ?? {};
+    // A correction never erases the earlier record: it is evidence too.
+    const history = Array.isArray(existing.postedHistory) ? [...existing.postedHistory] : [];
+    if (typeof existing.postedOn === "string" && existing.postedOn) {
+      history.push({ postedOn: existing.postedOn, reference: row.externalId ?? null });
+    }
+    const metadata: Record<string, unknown> = {
+      ...existing,
+      postedOn,
+      postedBy: userId,
+      postedAt: new Date().toISOString(),
+      ...(history.length ? { postedHistory: history } : {}),
+    };
+
+    try {
+      await db.update(communications).set({
+        status: "sent",
+        sentAt,
+        externalId: trimmed,
+        errorMessage: null,
+        metadata,
+      }).where(eq(communications.id, id));
+    } catch (err) {
+      console.error("[Communications] mark as posted failed:", err);
+      return c.json({ error: "Could not record the posting date" }, 500);
+    }
+
+    return c.json({
+      data: { id, status: "sent", sentAt: sentAt.toISOString(), postedOn, reference: trimmed },
+    });
+  }
+);
 
 // Send a custom message to a tenant (looks up tenant from lease)
 communicationsRouter.post(

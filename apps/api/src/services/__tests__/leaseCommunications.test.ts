@@ -157,3 +157,49 @@ describe("internal notes about muted reminders", () => {
     expect(toPastCommunication({ ...base, metadata: null }, new Map()).mute).toBeNull();
   });
 });
+
+describe("a registered formal notice in the contract history", () => {
+  const letter = {
+    ...base,
+    channel: "letter",
+    type: "formal_notice",
+    recipientEmail: null,
+    subject: "Ingebrekestelling",
+    body: "Letter body",
+  };
+
+  it("carries the posting day and the registered-item reference once posted", () => {
+    const out = toPastCommunication(
+      {
+        ...letter,
+        status: "sent",
+        externalId: "0105412345",
+        metadata: { postedOn: "2026-11-20", postedBy: "user-1", deadline: "2026-12-06" },
+      },
+      new Map(),
+    );
+    expect(out).toMatchObject({
+      audience: "tenant",
+      channel: "letter",
+      type: "formal_notice",
+      postedOn: "2026-11-20",
+      postedReference: "0105412345",
+    });
+  });
+
+  it("shows neither before it has been handed in at the post office", () => {
+    const out = toPastCommunication(
+      { ...letter, status: "queued", externalId: null, sentAt: null, metadata: { deadline: "2026-12-06" } },
+      new Map(),
+    );
+    expect(out.postedOn).toBeNull();
+    expect(out.postedReference).toBeNull();
+    expect(out.status).toBe("queued");
+  });
+
+  it("never reads an e-mail queue job id as a postal reference", () => {
+    const out = toPastCommunication({ ...base, externalId: "job-4711", metadata: null }, new Map());
+    expect(out.postedReference).toBeNull();
+    expect(out.postedOn).toBeNull();
+  });
+});
