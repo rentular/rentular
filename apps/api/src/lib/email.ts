@@ -52,12 +52,22 @@ export interface EmailOptions {
   /** In-Reply-To / References for a message that answers another one. */
   inReplyTo?: string;
   references?: string[];
-  attachments?: Array<{
-    filename: string;
-    content: Buffer;
-    contentType: string;
-  }>;
+  attachments?: EmailAttachment[];
 }
+
+/**
+ * One attached file. A producer that queues the mail has to pass `content` as
+ * a base64 string with `encoding: "base64"`: BullMQ JSON-serialises job data
+ * into Redis, a Buffer comes back out as `{ type: "Buffer", data: [...] }`,
+ * and nodemailer throws on that. A Buffer is only safe on the direct path,
+ * where nothing serialises it.
+ */
+export type EmailAttachment = {
+  filename: string;
+  content: Buffer | string;
+  encoding?: "base64";
+  contentType: string;
+};
 
 // Per-landlord SMTP transport cache with TTL-based expiry
 const transportCache = new Map<string, { transport: Transporter; createdAt: number; fromAddress: string; fromName?: string }>();
