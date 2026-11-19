@@ -165,6 +165,84 @@ describe("email module (NTF-07)", () => {
     });
   });
 
+  describe("attachments (D-29)", () => {
+    async function lastMail(): Promise<{ attachments?: unknown }> {
+      const nodemailer = await import("nodemailer");
+      const transport = (nodemailer.createTransport as unknown as () => {
+        sendMail: ReturnType<typeof vi.fn>;
+      })();
+      const calls = transport.sendMail.mock.calls;
+      return calls[calls.length - 1]![0] as { attachments?: unknown };
+    }
+
+    const pdfBytes = Buffer.from("%PDF-1.3\nnot a real document\n%%EOF\n");
+
+    function base64Attachment() {
+      return {
+        filename: "late-payment-overview.pdf",
+        content: pdfBytes.toString("base64"),
+        encoding: "base64" as const,
+        contentType: "application/pdf",
+      };
+    }
+
+    it("hands a base64 string attachment to the transport unchanged", async () => {
+      const { sendEmail } = await import("../email");
+      const attachment = base64Attachment();
+      await sendEmail({
+        to: "t@example.com",
+        subject: "s",
+        body: "b",
+        attachments: [attachment],
+      });
+      expect(await lastMail()).toMatchObject({ attachments: [attachment] });
+    });
+
+    it("builds MIME from a queue round-tripped base64 attachment", async () => {
+      // The real nodemailer, not the module mock: the point is that its MIME
+      // builder accepts what comes back out of Redis.
+      const nodemailer = await vi.importActual<typeof import("nodemailer")>("nodemailer");
+      const transport = nodemailer.createTransport({ streamTransport: true, buffer: true });
+      const attachments = JSON.parse(JSON.stringify([base64Attachment()])) as Array<
+        Record<string, unknown>
+      >;
+      expect(typeof attachments[0]!.content).toBe("string");
+
+      const info = await transport.sendMail({
+        from: "noreply@rentular.com",
+        to: "t@example.com",
+        subject: "s",
+        text: "b",
+        attachments,
+      });
+      const mime = (info.message as Buffer).toString("utf8");
+      expect(mime).toContain("application/pdf");
+      expect(mime).toContain("Content-Disposition: attachment; filename=late-payment-overview.pdf");
+      expect(mime).toContain("Content-Transfer-Encoding: base64");
+      expect(mime).toContain(pdfBytes.toString("base64"));
+    });
+
+    it("is why a Buffer may not be queued: the revived object breaks the builder", async () => {
+      const nodemailer = await vi.importActual<typeof import("nodemailer")>("nodemailer");
+      const transport = nodemailer.createTransport({ streamTransport: true, buffer: true });
+      const revived = JSON.parse(
+        JSON.stringify([
+          { filename: "x.pdf", content: pdfBytes, contentType: "application/pdf" },
+        ]),
+      ) as Array<Record<string, unknown>>;
+      expect(revived[0]!.content).toMatchObject({ type: "Buffer" });
+      await expect(
+        transport.sendMail({
+          from: "noreply@rentular.com",
+          to: "t@example.com",
+          subject: "s",
+          text: "b",
+          attachments: revived as never,
+        }),
+      ).rejects.toThrow();
+    });
+  });
+
   describe("clearTransportCache", () => {
     it("should not throw when clearing a non-existent cache entry", async () => {
       const { clearTransportCache } = await import("../email");

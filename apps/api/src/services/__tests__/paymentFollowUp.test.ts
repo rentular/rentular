@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { SOFT_ENFORCEMENT_GRACE_DAYS } from "@rentular/shared";
 import {
   determineReminderLevel,
   shouldWaiveFee,
@@ -6,8 +7,15 @@ import {
   DEFAULT_SETTINGS,
   decideFinalReminder,
   FINAL_REMINDER_HOLD_DAYS,
+  buildLatePaymentOverviewDocument,
+  buildFinalReminderAttachment,
+  generateLatePaymentPdf,
+  type FollowUpSettings,
+  type OverduePayment,
   type ReminderLevel,
 } from "../paymentFollowUp";
+import { formatEur, formatShortDate } from "../../lib/belgianFormat";
+import type { LetterDocument } from "../../lib/letterDocument";
 
 // Minimal OverduePayment factory
 function makePayment(overrides: Record<string, unknown> = {}) {
@@ -177,5 +185,174 @@ describe("decideFinalReminder", () => {
 
   it("defaults to a 2 day hold", () => {
     expect(FINAL_REMINDER_HOLD_DAYS).toBe(2);
+  });
+});
+
+// The overview attachment on the final reminder (D-05, D-29). makePayment is
+// deliberately untyped above, so one cast puts it back on the real shape.
+function latePayment(overrides: Partial<OverduePayment> = {}): OverduePayment {
+  return { ...(makePayment() as unknown as OverduePayment), ...overrides };
+}
+
+function withSettings(overrides: Partial<FollowUpSettings> = {}): FollowUpSettings {
+  return { ...DEFAULT_SETTINGS, ...overrides };
+}
+
+function amountRows(document: LetterDocument): Array<{ label: string; value: string; bold?: boolean }> {
+  const block = document.blocks.find((b) => b.kind === "amounts");
+  if (block?.kind !== "amounts") throw new Error("the overview has no amounts block");
+  return block.rows;
+}
+
+function labels(document: LetterDocument): string[] {
+  return amountRows(document).map((row) => row.label);
+}
+
+function paragraphs(document: LetterDocument): string[] {
+  return document.blocks
+    .filter((b) => b.kind === "paragraph")
+    .map((b) => (b.kind === "paragraph" ? b.text : ""));
+}
+
+describe("generateLatePaymentPdf (D-05)", () => {
+  it("returns real PDF bytes", async () => {
+    const pdf = await generateLatePaymentPdf(latePayment(), withSettings());
+    expect(pdf.subarray(0, 5).toString("latin1")).toBe("%PDF-");
+    expect(pdf.length).toBeGreaterThan(5000);
+  });
+});
+
+describe("buildFinalReminderAttachment (D-29)", () => {
+  it("carries the PDF as a base64 string nodemailer understands", async () => {
+    const attachment = await buildFinalReminderAttachment(latePayment(), withSettings());
+    expect(attachment.filename).toBe("late-payment-overview.pdf");
+    expect(attachment.contentType).toBe("application/pdf");
+    expect(attachment.encoding).toBe("base64");
+    expect(typeof attachment.content).toBe("string");
+  });
+
+  it("survives the JSON round trip the BullMQ queue puts it through", async () => {
+    const attachment = await buildFinalReminderAttachment(latePayment(), withSettings());
+    const revived = JSON.parse(JSON.stringify([attachment])) as Array<{
+      content: unknown;
+      encoding: unknown;
+    }>;
+    expect(typeof revived[0]!.content).toBe("string");
+    expect(revived[0]!.encoding).toBe("base64");
+    const bytes = Buffer.from(revived[0]!.content as string, "base64");
+    expect(bytes.subarray(0, 5).toString("latin1")).toBe("%PDF-");
+  });
+});
+
+describe("buildLatePaymentOverviewDocument", () => {
+  it("states the rent, the due date and the days overdue", () => {
+    const rows = amountRows(buildLatePaymentOverviewDocument(latePayment(), withSettings()));
+    expect(rows[0]).toEqual({ label: "Verschuldigde huur", value: formatEur(850) });
+    expect(rows[1]).toEqual({ label: "Vervaldag", value: formatShortDate("2026-03-01") });
+    expect(rows[2]).toEqual({ label: "Dagen te laat", value: "5" });
+  });
+
+  it("names the tenant and the property", () => {
+    const document = buildLatePaymentOverviewDocument(latePayment(), withSettings());
+    expect(document.senderLines).toEqual(["Pieter Peeters"]);
+    expect(document.addresseeLines).toEqual(["Jan Janssens"]);
+    expect(paragraphs(document)[0]).toBe("Huurder: Jan Janssens\nPand: Apartment 2B");
+  });
+
+  it("leaves the place and date line out", () => {
+    expect(buildLatePaymentOverviewDocument(latePayment(), withSettings()).placeAndDate).toBe("");
+  });
+
+  it("has no interest row when interest is off", () => {
+    const document = buildLatePaymentOverviewDocument(
+      latePayment(),
+      withSettings({ interestEnabled: false }),
+    );
+    expect(labels(document).some((label) => label.startsWith("Verwijlintresten"))).toBe(false);
+  });
+
+  it("has an interest row with the rate when interest is on", () => {
+    const document = buildLatePaymentOverviewDocument(
+      latePayment(),
+      withSettings({ interestEnabled: true, annualInterestRate: 3.75 }),
+    );
+    const interest = amountRows(document).find((row) => row.label.startsWith("Verwijlintresten"));
+    expect(interest?.label).toBe("Verwijlintresten (3,75 % per jaar)");
+    expect(interest?.value).toBe(formatEur(calculateInterest(850, 5, 3.75)));
+  });
+
+  it("has no fee row when the lease charges no fee", () => {
+    const document = buildLatePaymentOverviewDocument(
+      latePayment({ latePaymentFeeEnabled: false }),
+      withSettings(),
+    );
+    expect(labels(document)).not.toContain("Vergoeding voor laattijdige betaling");
+  });
+
+  it("has a fee row when the lease charges one", () => {
+    const document = buildLatePaymentOverviewDocument(
+      latePayment({ latePaymentFeeEnabled: true, latePaymentFeeAmount: 15 }),
+      withSettings(),
+    );
+    const fee = amountRows(document).find(
+      (row) => row.label === "Vergoeding voor laattijdige betaling",
+    );
+    expect(fee?.value).toBe(formatEur(15));
+  });
+
+  it("totals rent plus interest plus fee, in bold", () => {
+    const settings = withSettings({ interestEnabled: true, annualInterestRate: 3.75 });
+    const payment = latePayment({ latePaymentFeeEnabled: true, latePaymentFeeAmount: 15 });
+    const rows = amountRows(buildLatePaymentOverviewDocument(payment, settings));
+    const total = rows[rows.length - 1]!;
+    const expected = 850 + calculateInterest(850, 5, 3.75) + 15;
+    expect(total.label).toBe("Totaal verschuldigd");
+    expect(total.bold).toBe(true);
+    expect(total.value).toBe(formatEur(Math.round(expected * 100) / 100));
+    expect(rows.filter((row) => row.bold).length).toBe(1);
+  });
+
+  it("promises the waiver only under soft enforcement", () => {
+    const soft = buildLatePaymentOverviewDocument(
+      latePayment({ latePaymentFeeEnabled: true, latePaymentFeeEnforcement: "soft" }),
+      withSettings(),
+    );
+    expect(paragraphs(soft)).toContain(
+      `Deze vergoeding vervalt als u binnen ${SOFT_ENFORCEMENT_GRACE_DAYS} dagen betaalt.`,
+    );
+
+    const strict = buildLatePaymentOverviewDocument(
+      latePayment({ latePaymentFeeEnabled: true, latePaymentFeeEnforcement: "strict" }),
+      withSettings(),
+    );
+    expect(strict.blocks.some((b) => b.kind === "paragraph" && b.text.includes("vervalt"))).toBe(false);
+
+    const noFee = buildLatePaymentOverviewDocument(
+      latePayment({ latePaymentFeeEnabled: false, latePaymentFeeEnforcement: "soft" }),
+      withSettings(),
+    );
+    expect(noFee.blocks.some((b) => b.kind === "paragraph" && b.text.includes("vervalt"))).toBe(false);
+  });
+
+  it("closes by asking the tenant to pay or get in touch", () => {
+    const texts = paragraphs(buildLatePaymentOverviewDocument(latePayment(), withSettings()));
+    expect(texts[texts.length - 1]).toBe(
+      "Hebt u al betaald of klopt er iets niet, neem dan contact op met uw verhuurder. Anders vragen wij u dit bedrag zo snel mogelijk te betalen.",
+    );
+  });
+
+  it.each([
+    ["nl", "Overzicht laattijdige betaling"],
+    ["fr", "Aperçu du paiement en retard"],
+    ["de", "Übersicht der verspäteten Zahlung"],
+    ["en", "Late payment overview"],
+  ] as const)("titles the %s overview", (language, title) => {
+    const document = buildLatePaymentOverviewDocument(
+      latePayment({ tenantLanguage: language }),
+      withSettings(),
+    );
+    expect(document.language).toBe(language);
+    expect(document.title).toBe(title);
+    expect(document.subject).toBe(title);
   });
 });
