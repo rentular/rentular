@@ -1770,7 +1770,8 @@
       "errors": {
         "failed": "Das Datum der Aufgabe konnte nicht gespeichert werden.",
         "invalid_posted_date": "Geben Sie ein Datum zwischen dem Tag der Erstellung des Briefes und heute an.",
-        "not_a_letter": "Nur Briefe können als aufgegeben markiert werden."
+        "not_a_letter": "Nur Briefe können als aufgegeben markiert werden.",
+        "not_markable": "Dieser Brief kann nicht als aufgegeben markiert werden, da er nicht erstellt oder nicht versandt wurde."
       }
     }
   },
