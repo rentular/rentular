@@ -408,6 +408,122 @@ the test contract". The `mark_rent_paid` and `unmark_rent_paid` tools do
 steps 8 and 9. Setup is in `apps/mcp-server/README.md`. The same rules
 apply: test account only.
 
+## Part 4: checking the letters still print after an update
+
+Rentular draws its formal notice letters (the *aangetekende
+ingebrekestelling* a landlord sends when rent is overdue) with an outside
+piece of software called pdfkit. Once a week, on Monday, a robot called
+Dependabot opens a pull request on GitHub that updates pdfkit and the other
+outside software to newer versions. That is deliberate: we want security
+fixes without anyone having to remember to go looking for them.
+
+The risk is the other side of that coin. A new version of pdfkit can change
+how a page is drawn, and a letter that comes out blank, with missing
+accented letters, or with text running off the edge of the page still counts
+as a perfectly valid PDF file. Nothing crashes. No error appears in any log.
+The landlord only finds out when the letter arrives at the tenant, and by
+then it has been sent by registered post.
+
+So there is one check to run, and it takes about a minute.
+
+### When to run it
+
+- When a Dependabot pull request on GitHub mentions **pdfkit**, before it is
+  merged. Those PRs are labelled `dependencies`.
+- After any deploy where you were told pdfkit changed.
+- Once a month anyway, as a habit, even if nothing changed.
+
+You do not need to run it for updates to other packages. pdfkit is the only
+one that draws the letters.
+
+### Running it
+
+On the machine where Rentular's code lives, from the top of the repository:
+
+```bash
+pnpm --filter @rentular/api exec tsx src/scripts/formalNoticeSample.ts
+```
+
+It needs no database, no password file and no internet connection. It cannot
+touch real landlord data, real tenants or real letters, because it draws
+eight made-up letters from a fixed example contract. It is safe to run at
+any time of day, including on the production machine.
+
+### Reading the result
+
+A good run ends with a line starting with `PASS`, like this:
+
+```
+[FormalNoticeSample] pdfkit 0.20.2
+[FormalNoticeSample] wrote /tmp/formal-notice-samples/formal-notice-nl-3.pdf (24464 bytes)
+... six more lines ...
+[FormalNoticeSample] wrote /tmp/formal-notice-samples/formal-notice-en-12.pdf (25673 bytes)
+[FormalNoticeSample] glyphs outside Latin-1 embedded: Ł <0141> (LATIN CAPITAL LETTER L WITH STROKE), ş <015f> (LATIN SMALL LETTER S WITH CEDILLA), ı <0131> (LATIN SMALL LETTER DOTLESS I)
+PASS: 8 sample letters written to /tmp/formal-notice-samples, A4 PDFs with the letter font embedded, pdfkit 0.20.2
+```
+
+Three things in that output are worth understanding, because they are the
+three ways this can go wrong:
+
+- **The version number** on the first and last line is read from the pdfkit
+  that is actually installed, not from anything written down. That is how
+  you confirm the update you are checking is really the one that ran. If a
+  PR says it moves pdfkit to 0.21.0 and this prints 0.20.2, the update is
+  not on this machine yet and you have checked nothing.
+- **The eight byte counts.** This is the one that needs your eyes, because
+  the script is deliberately strict about only what it can prove. It fails
+  on a file with nothing in it at all, and on a file that is not a PDF. It
+  does **not** judge whether a file is too small. Real letters are in the
+  twenty to thirty thousand range; a letter of a few hundred or a few
+  thousand bytes is very likely a blank or half-drawn page, and it will
+  still be reported as PASS. So glance at the eight numbers. If they have
+  dropped sharply since last time, report it even though the script was
+  happy. Keeping the output of a good run to compare against is worth the
+  thirty seconds.
+- **The glyph line.** `Ł`, `ş` and `ı` are letters that do not exist in the
+  old Western European character set. They appear in real Belgian tenant
+  names. The script proves these are genuinely embedded in the document, not
+  merely that a file was produced. This is the check that catches a broken
+  font, which is the most likely thing a pdfkit update breaks.
+
+A bad run ends with a line starting with `FAIL` and a reason, and the
+command reports failure to the shell. Treat any `FAIL` as a stop sign: do
+not let the pdfkit pull request be merged, and tell the developer.
+
+### Looking at a letter with your own eyes
+
+The automated check cannot tell you whether a letter looks *right*. Once a
+month, or whenever a pdfkit update changes more than the last digit of the
+version (0.20.2 to 0.21.0, say, rather than 0.20.2 to 0.20.3), open one of
+the files it wrote and look at it:
+
+```bash
+xdg-open /tmp/formal-notice-samples/formal-notice-nl-3.pdf
+```
+
+What you are looking for, on one sheet of A4:
+
+- The landlord's address at the top, the tenant's address below it.
+- A readable table of what is owed, with amounts in euro and dates as
+  dd/mm/yyyy.
+- Nothing cut off at the right edge or running past the bottom of the page.
+- Accented and unusual letters in the names showing as letters, not as
+  boxes, question marks or blanks.
+- No placeholder text in curly braces, like `{tenantName}`.
+
+Compare it against the copy you kept from the previous month. If something
+moved, that is worth a message even if the automated check passed.
+
+### Reporting a letter problem
+
+On top of the usual details in "Reporting a problem" below, send:
+
+- the whole output of the command, from the first line to the last;
+- the PDF file itself, if one was produced;
+- the version number the script printed;
+- the number of the Dependabot pull request, if that is what prompted the
+  check.
+
 ## Reporting a problem
 
 Send the developer:
