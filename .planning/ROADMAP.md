@@ -262,7 +262,7 @@ Plans:
 **Goal:** A landlord can generate a print-ready aangetekende ingebrekestelling (formal notice of default) for a contract in rent arrears, in the tenant's language, containing everything Belgian law and a vrederechter expect: sender and addressee postal addresses, the contract reference, the arrears per month, interest and late fee, a payment deadline, and the warning that judicial dissolution will be sought. The letter is downloadable, the landlord posts it registered, and the app logs it as a `letter` communication so the arrears file is complete when the case goes to the justice of the peace.
 **Requirements**: TBD
 **Depends on:** Phase 11
-**Plans:** 9 plans
+**Plans:** 3/9 plans executed
 
 **Known starting points (from code review 2026-11-18):**
 - Nothing like it exists. Reminders stop at friendly/formal/final e-mail/SMS/WhatsApp (`apps/api/src/services/paymentFollowUp.ts`, `manualReminder.ts`, `POST /api/v1/payments/send-reminder`).
@@ -272,9 +272,9 @@ Plans:
 - Address gap: `properties` has street/number/postalCode/city/country, but `users` (landlord sender) and `tenants` (addressee, which may differ from the rented property) have no postal address. Schema addition needed, and `drizzle-baseline-stale` means `db:push`, not `db:generate`.
 
 Plans:
-- [ ] 11.2-01-PLAN.md: registry check for pdfkit, install, commit the Liberation Sans fonts (wave 1, human checkpoint)
-- [ ] 11.2-02-PLAN.md: address columns, formal_notice enum value, hand-written DDL file, address fields on the settings and tenant routes (wave 1)
-- [ ] 11.2-03-PLAN.md: letter document contract, totals and deadline arithmetic, letter copy in NL/FR/DE/EN (wave 1)
+- [x] 11.2-01-PLAN.md: registry check for pdfkit, install, commit the Liberation Sans fonts (wave 1, human checkpoint)
+- [x] 11.2-02-PLAN.md: address columns, formal_notice enum value, hand-written DDL file, address fields on the settings and tenant routes (wave 1)
+- [x] 11.2-03-PLAN.md: letter document contract, totals and deadline arithmetic, letter copy in NL/FR/DE/EN (wave 1)
 - [ ] 11.2-04-PLAN.md: A4 PDF renderer on pdfkit, real queue-safe PDF on the final reminder (wave 2)
 - [ ] 11.2-05-PLAN.md: formal notice orchestrator and POST /payments/formal-notice (wave 3)
 - [ ] 11.2-06-PLAN.md: mark a letter as posted, posting date and reference in the contract history (wave 2)
