@@ -27,6 +27,8 @@ import {
   type GoCardlessSetupStatus,
 } from "@/components/GoCardlessConnectionCard";
 import IbanInput, { BicSelect, BankNameSelect } from "@/components/IbanInput";
+import BelgianCityInput from "@/components/BelgianCityInput";
+import CountrySelect from "@/components/CountrySelect";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
   Card,
@@ -433,6 +435,12 @@ function ProfileTab({ apiUrl }: { apiUrl: string }) {
   const [vatNumber, setVatNumber] = useState("");
   const [whatsappNumber, setWhatsappNumber] = useState("");
   const [indexationAlertsEnabled, setIndexationAlertsEnabled] = useState(true);
+  const [street, setStreet] = useState("");
+  const [streetNumber, setStreetNumber] = useState("");
+  const [box, setBox] = useState("");
+  const [postalCode, setPostalCode] = useState("");
+  const [city, setCity] = useState("");
+  const [country, setCountry] = useState("BE");
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -445,6 +453,12 @@ function ProfileTab({ apiUrl }: { apiUrl: string }) {
         setVatNumber(d.vatNumber || "");
         setWhatsappNumber(d.whatsappNumber || "");
         setIndexationAlertsEnabled(d.indexationAlertsEnabled !== false);
+        setStreet(d.street || "");
+        setStreetNumber(d.streetNumber || "");
+        setBox(d.box || "");
+        setPostalCode(d.postalCode || "");
+        setCity(d.city || "");
+        setCountry(d.country || "BE");
       })
       .catch(() => {});
   }, [apiUrl]);
@@ -461,6 +475,13 @@ function ProfileTab({ apiUrl }: { apiUrl: string }) {
           vatNumber: landlordType === "company" ? vatNumber : "",
           whatsappNumber,
           indexationAlertsEnabled,
+          // An empty string clears the column on the API side.
+          street,
+          streetNumber,
+          box,
+          postalCode,
+          city,
+          country,
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -519,6 +540,68 @@ function ProfileTab({ apiUrl }: { apiUrl: string }) {
               />
             </div>
           )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>{t("senderAddress.title")}</CardTitle>
+          <CardDescription>{t("senderAddress.description")}</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div>
+            <Label htmlFor="sender-street" className="mb-2 block">
+              {t("senderAddress.street")}
+            </Label>
+            <Input
+              id="sender-street"
+              value={street}
+              onChange={(e) => setStreet(e.target.value)}
+              maxLength={255}
+              className="max-w-sm"
+            />
+          </div>
+          <div className="grid max-w-sm grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="sender-street-number" className="mb-2 block">
+                {t("senderAddress.streetNumber")}
+              </Label>
+              <Input
+                id="sender-street-number"
+                value={streetNumber}
+                onChange={(e) => setStreetNumber(e.target.value)}
+                maxLength={20}
+              />
+            </div>
+            <div>
+              <Label htmlFor="sender-box" className="mb-2 block">
+                {t("senderAddress.box")}
+              </Label>
+              <Input
+                id="sender-box"
+                value={box}
+                onChange={(e) => setBox(e.target.value)}
+                maxLength={20}
+              />
+            </div>
+          </div>
+          <BelgianCityInput
+            className="max-w-sm"
+            postalCodeLabel={t("senderAddress.postalCode")}
+            cityLabel={t("senderAddress.city")}
+            postalCodeValue={postalCode}
+            cityValue={city}
+            onPostalCodeChange={setPostalCode}
+            onCityChange={setCity}
+          />
+          <div>
+            <Label className="mb-2 block">{t("senderAddress.country")}</Label>
+            <CountrySelect
+              className="max-w-sm"
+              value={country}
+              onChange={setCountry}
+            />
+          </div>
         </CardContent>
       </Card>
 

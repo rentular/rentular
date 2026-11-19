@@ -202,7 +202,17 @@
     "preferredChannelHint": "How automatic reminders reach this tenant. SMS/WhatsApp need a phone number.",
     "channelEmail": "Email",
     "channelSms": "SMS",
-    "channelWhatsapp": "WhatsApp"
+    "channelWhatsapp": "WhatsApp",
+    "correspondence": {
+      "title": "Correspondence address",
+      "description": "Fill this in only when letters must go somewhere other than the rented property, for example when the tenant no longer lives there.",
+      "street": "Street",
+      "streetNumber": "Number",
+      "box": "Box",
+      "postalCode": "Postal code",
+      "city": "City",
+      "country": "Country"
+    }
   },
   "leases": {
     "title": "Leases",
@@ -396,6 +406,7 @@
     "typeLeaseRenewal": "Lease renewal",
     "typeLeaseTermination": "Lease termination",
     "typeOther": "Other",
+    "typeFormalNotice": "Formal notice of default",
     "statusQueued": "Queued",
     "statusSent": "Sent",
     "statusDelivered": "Delivered",
@@ -403,6 +414,10 @@
     "statusBounced": "Bounced",
     "channelEmail": "Email",
     "channelSms": "SMS",
+    "channelWhatsapp": "WhatsApp",
+    "channelSignal": "Signal",
+    "channelLetter": "Letter",
+    "channelInternal": "Internal note",
     "loadError": "Failed to load communications. Please try again."
   },
   "settings": {
@@ -414,6 +429,16 @@
       "individual": "Individual",
       "company": "Company",
       "vat": "VAT number"
+    },
+    "senderAddress": {
+      "title": "Postal address",
+      "description": "Printed as the sender on letters to tenants, such as a formal notice of default.",
+      "street": "Street",
+      "streetNumber": "Number",
+      "box": "Box",
+      "postalCode": "Postal code",
+      "city": "City",
+      "country": "Country"
     },
     "title": "Settings",
     "subtitle": "Configure your payment follow-up and preferences",
@@ -1605,7 +1630,8 @@
       "landlord_final_pending": "Notice before the third reminder",
       "landlord_late": "Late payment notice",
       "tenant_reply": "Reply from tenant",
-      "internal_note": "Internal note"
+      "internal_note": "Internal note",
+      "formal_notice": "Formal notice of default"
     },
     "landlordKind": {
       "late": "Late payment notice",
@@ -1692,6 +1718,60 @@
       "too_far": "Reminders can be muted for at most 120 days.",
       "invalid_date": "That is not a valid date.",
       "failed": "That did not work. Please try again."
+    }
+  },
+  "formalNotice": {
+    "cardTitle": "Formal notice of default",
+    "cardDescription": "Generate a registered letter that puts the tenant in default for the rent that is still open. You print it and post it by registered mail yourself.",
+    "open": "Generate formal notice",
+    "dialogTitle": "Generate formal notice of default",
+    "dialogDescription": "One letter is made for each tenant on the contract, in that tenant's language.",
+    "deadlineDays": "Payment deadline (days)",
+    "deadlineDate": "The letter will ask for payment by {date}.",
+    "extraParagraph": "Extra paragraph (optional)",
+    "extraParagraphHint": "Added after the payment details, in your own words. Leave empty for the standard letter.",
+    "generate": "Generate",
+    "generating": "Generating...",
+    "cancel": "Cancel",
+    "close": "Close",
+    "resultTitle": "What the letter claims",
+    "rentOwed": "Rent arrears",
+    "interest": "Late payment interest",
+    "fee": "Late payment fee",
+    "total": "Total claimed",
+    "deadline": "Payment deadline",
+    "lettersTitle": "Letters",
+    "letterFor": "Letter for {name}",
+    "downloadAgain": "Download again",
+    "notLogged": "This letter could not be saved in the contract history. Keep the PDF yourself.",
+    "postHint": "Post each letter by registered mail, then record the posting date in the history below. The deadline and any later dispute depend on that date.",
+    "openSettings": "Open Settings",
+    "errors": {
+      "failed": "The formal notice could not be generated.",
+      "nothing_owed": "Nothing is owed on this contract, so there is nothing to give notice of.",
+      "missing_sender_address": "Your postal address is missing. Add it under Settings, Profile, then try again.",
+      "missing_bank_account": "No bank account is linked to this contract, so the letter cannot say where to pay.",
+      "no_tenant": "No tenant is linked to this contract.",
+      "lease_not_found": "This contract was not found.",
+      "invalid_deadline": "Enter a deadline between 1 and 90 days."
+    },
+    "posted": {
+      "notPosted": "Not posted yet",
+      "button": "Mark as posted",
+      "edit": "Change posting date",
+      "dialogTitle": "Record the posting",
+      "dialogDescription": "Enter the day you handed the letter in at the post office and, if you have it, the barcode on the receipt.",
+      "postedOn": "Posted on",
+      "reference": "Registered item reference (optional)",
+      "save": "Save",
+      "saved": "Posting recorded for {date}.",
+      "summary": "Posted on {date}",
+      "summaryWithReference": "Posted on {date}, reference {reference}",
+      "errors": {
+        "failed": "The posting date could not be saved.",
+        "invalid_posted_date": "Enter a date between the day the letter was made and today.",
+        "not_a_letter": "Only letters can be marked as posted."
+      }
     }
   },
   "ebWizard": {

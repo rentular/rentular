@@ -6,6 +6,8 @@ import { Users, Plus, Search, Mail, Phone, Pencil, Trash2, MoreHorizontal } from
 import { toast } from "sonner";
 import PhoneInput from "@/components/PhoneInput";
 import IbanInput from "@/components/IbanInput";
+import BelgianCityInput from "@/components/BelgianCityInput";
+import CountrySelect from "@/components/CountrySelect";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -83,6 +85,12 @@ interface Tenant {
   notes?: string;
   gocardlessCustomerId?: string;
   gocardlessMandateId?: string;
+  correspondenceStreet?: string | null;
+  correspondenceStreetNumber?: string | null;
+  correspondenceBox?: string | null;
+  correspondencePostalCode?: string | null;
+  correspondenceCity?: string | null;
+  correspondenceCountry?: string | null;
 }
 
 export default function TenantsPage() {
@@ -673,6 +681,69 @@ export default function TenantsPage() {
                 >
                   <Plus className="h-3.5 w-3.5" /> {t("addAccount")}
                 </button>
+              </div>
+            </div>
+            <div className="rounded-md border border-input p-4">
+              <h3 className="text-sm font-medium">{t("correspondence.title")}</h3>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {t("correspondence.description")}
+              </p>
+              <div className="mt-3 space-y-3">
+                <div>
+                  <label className="mb-1 block text-sm font-medium">
+                    {t("correspondence.street")}
+                  </label>
+                  <input
+                    name="correspondenceStreet"
+                    type="text"
+                    maxLength={255}
+                    defaultValue={editing?.correspondenceStreet || ""}
+                    className={ic}
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="mb-1 block text-sm font-medium">
+                      {t("correspondence.streetNumber")}
+                    </label>
+                    <input
+                      name="correspondenceStreetNumber"
+                      type="text"
+                      maxLength={20}
+                      defaultValue={editing?.correspondenceStreetNumber || ""}
+                      className={ic}
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-sm font-medium">
+                      {t("correspondence.box")}
+                    </label>
+                    <input
+                      name="correspondenceBox"
+                      type="text"
+                      maxLength={20}
+                      defaultValue={editing?.correspondenceBox || ""}
+                      className={ic}
+                    />
+                  </div>
+                </div>
+                <BelgianCityInput
+                  postalCodeName="correspondencePostalCode"
+                  cityName="correspondenceCity"
+                  postalCodeLabel={t("correspondence.postalCode")}
+                  cityLabel={t("correspondence.city")}
+                  postalCodeValue={editing?.correspondencePostalCode || ""}
+                  cityValue={editing?.correspondenceCity || ""}
+                />
+                <div>
+                  <label className="mb-1 block text-sm font-medium">
+                    {t("correspondence.country")}
+                  </label>
+                  <CountrySelect
+                    name="correspondenceCountry"
+                    defaultValue={editing?.correspondenceCountry || "BE"}
+                  />
+                </div>
               </div>
             </div>
             <div>

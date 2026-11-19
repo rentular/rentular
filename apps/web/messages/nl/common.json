@@ -202,7 +202,17 @@
     "preferredChannelHint": "Hoe automatische herinneringen deze huurder bereiken. SMS/WhatsApp vereisen een telefoonnummer.",
     "channelEmail": "E-mail",
     "channelSms": "SMS",
-    "channelWhatsapp": "WhatsApp"
+    "channelWhatsapp": "WhatsApp",
+    "correspondence": {
+      "title": "Correspondentieadres",
+      "description": "Vul dit alleen in wanneer brieven naar een ander adres moeten dan het gehuurde pand, bijvoorbeeld wanneer de huurder er niet meer woont.",
+      "street": "Straat",
+      "streetNumber": "Nummer",
+      "box": "Bus",
+      "postalCode": "Postcode",
+      "city": "Stad",
+      "country": "Land"
+    }
   },
   "leases": {
     "title": "Huurcontracten",
@@ -396,6 +406,7 @@
     "typeLeaseRenewal": "Huurverlenging",
     "typeLeaseTermination": "Huurbeeindiging",
     "typeOther": "Overig",
+    "typeFormalNotice": "Ingebrekestelling",
     "statusQueued": "In wachtrij",
     "statusSent": "Verzonden",
     "statusDelivered": "Afgeleverd",
@@ -403,6 +414,10 @@
     "statusBounced": "Geweigerd",
     "channelEmail": "E-mail",
     "channelSms": "Sms",
+    "channelWhatsapp": "WhatsApp",
+    "channelSignal": "Signal",
+    "channelLetter": "Brief",
+    "channelInternal": "Interne nota",
     "loadError": "Kan communicatie niet laden. Probeer het opnieuw."
   },
   "settings": {
@@ -414,6 +429,16 @@
       "individual": "Particulier",
       "company": "Vennootschap",
       "vat": "Btw-nummer"
+    },
+    "senderAddress": {
+      "title": "Postadres",
+      "description": "Komt als afzender op brieven aan huurders, bijvoorbeeld op een ingebrekestelling.",
+      "street": "Straat",
+      "streetNumber": "Nummer",
+      "box": "Bus",
+      "postalCode": "Postcode",
+      "city": "Stad",
+      "country": "Land"
     },
     "title": "Instellingen",
     "subtitle": "Configureer je betalingsopvolging en voorkeuren",
@@ -1605,7 +1630,8 @@
       "landlord_final_pending": "Melding vóór de derde herinnering",
       "landlord_late": "Melding van laattijdige betaling",
       "tenant_reply": "Antwoord van huurder",
-      "internal_note": "Interne notitie"
+      "internal_note": "Interne notitie",
+      "formal_notice": "Ingebrekestelling"
     },
     "landlordKind": {
       "late": "Melding van laattijdige betaling",
@@ -1692,6 +1718,60 @@
       "too_far": "Herinneringen kunnen hoogstens 120 dagen gedempt worden.",
       "invalid_date": "Dat is geen geldige datum.",
       "failed": "Dat lukte niet. Probeer het nog eens."
+    }
+  },
+  "formalNotice": {
+    "cardTitle": "Ingebrekestelling",
+    "cardDescription": "Maak een aangetekende brief die de huurder in gebreke stelt voor de huur die nog openstaat. U print de brief zelf en geeft hem aangetekend af bij de post.",
+    "open": "Ingebrekestelling maken",
+    "dialogTitle": "Ingebrekestelling maken",
+    "dialogDescription": "Er komt één brief per huurder op het contract, in de taal van die huurder.",
+    "deadlineDays": "Betaaltermijn (dagen)",
+    "deadlineDate": "De brief vraagt betaling tegen {date}.",
+    "extraParagraph": "Extra alinea (optioneel)",
+    "extraParagraphHint": "Komt na de betaalgegevens, in uw eigen woorden. Laat leeg voor de standaardbrief.",
+    "generate": "Maken",
+    "generating": "Bezig met maken...",
+    "cancel": "Annuleren",
+    "close": "Sluiten",
+    "resultTitle": "Wat de brief vordert",
+    "rentOwed": "Huurachterstal",
+    "interest": "Interest wegens laattijdige betaling",
+    "fee": "Kosten wegens laattijdige betaling",
+    "total": "Totaal gevorderd",
+    "deadline": "Betaaltermijn",
+    "lettersTitle": "Brieven",
+    "letterFor": "Brief voor {name}",
+    "downloadAgain": "Opnieuw downloaden",
+    "notLogged": "Deze brief kon niet in de geschiedenis van het contract bewaard worden. Houd de PDF zelf bij.",
+    "postHint": "Geef elke brief aangetekend af en noteer daarna de verzenddatum in de geschiedenis hieronder. De termijn en een latere betwisting hangen van die datum af.",
+    "openSettings": "Instellingen openen",
+    "errors": {
+      "failed": "De ingebrekestelling kon niet gemaakt worden.",
+      "nothing_owed": "Op dit contract staat niets open, dus er is niets om in gebreke te stellen.",
+      "missing_sender_address": "Uw postadres ontbreekt. Vul het in bij Instellingen, Profiel en probeer daarna opnieuw.",
+      "missing_bank_account": "Er is geen bankrekening aan dit contract gekoppeld, dus de brief kan niet zeggen waar betaald moet worden.",
+      "no_tenant": "Er is geen huurder aan dit contract gekoppeld.",
+      "lease_not_found": "Dit contract is niet gevonden.",
+      "invalid_deadline": "Geef een termijn tussen 1 en 90 dagen."
+    },
+    "posted": {
+      "notPosted": "Nog niet verzonden",
+      "button": "Markeren als verzonden",
+      "edit": "Verzenddatum wijzigen",
+      "dialogTitle": "Verzending noteren",
+      "dialogDescription": "Vul de dag in waarop u de brief op het postkantoor hebt afgegeven en, als u die hebt, de streepjescode op het ontvangstbewijs.",
+      "postedOn": "Verzonden op",
+      "reference": "Referentie van de aangetekende zending (optioneel)",
+      "save": "Opslaan",
+      "saved": "Verzending genoteerd op {date}.",
+      "summary": "Verzonden op {date}",
+      "summaryWithReference": "Verzonden op {date}, referentie {reference}",
+      "errors": {
+        "failed": "De verzenddatum kon niet opgeslagen worden.",
+        "invalid_posted_date": "Geef een datum tussen de dag waarop de brief gemaakt is en vandaag.",
+        "not_a_letter": "Alleen brieven kunnen als verzonden gemarkeerd worden."
+      }
     }
   },
   "ebWizard": {

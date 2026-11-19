@@ -202,7 +202,17 @@
     "preferredChannelHint": "Comment les rappels automatiques atteignent ce locataire. SMS/WhatsApp necessitent un numero.",
     "channelEmail": "E-mail",
     "channelSms": "SMS",
-    "channelWhatsapp": "WhatsApp"
+    "channelWhatsapp": "WhatsApp",
+    "correspondence": {
+      "title": "Adresse de correspondance",
+      "description": "À remplir uniquement si les lettres doivent partir vers une autre adresse que le bien loué, par exemple si le locataire n'y habite plus.",
+      "street": "Rue",
+      "streetNumber": "Numéro",
+      "box": "Boîte",
+      "postalCode": "Code postal",
+      "city": "Ville",
+      "country": "Pays"
+    }
   },
   "leases": {
     "title": "Baux",
@@ -396,6 +406,7 @@
     "typeLeaseRenewal": "Renouvellement de bail",
     "typeLeaseTermination": "Resiliation de bail",
     "typeOther": "Autre",
+    "typeFormalNotice": "Mise en demeure",
     "statusQueued": "En attente",
     "statusSent": "Envoye",
     "statusDelivered": "Delivre",
@@ -403,6 +414,10 @@
     "statusBounced": "Rejete",
     "channelEmail": "E-mail",
     "channelSms": "SMS",
+    "channelWhatsapp": "WhatsApp",
+    "channelSignal": "Signal",
+    "channelLetter": "Lettre",
+    "channelInternal": "Note interne",
     "loadError": "Echec du chargement des communications. Veuillez reessayer."
   },
   "settings": {
@@ -414,6 +429,16 @@
       "individual": "Particulier",
       "company": "Societe",
       "vat": "Numero de TVA"
+    },
+    "senderAddress": {
+      "title": "Adresse postale",
+      "description": "Imprimée comme expéditeur sur les lettres aux locataires, par exemple sur une mise en demeure.",
+      "street": "Rue",
+      "streetNumber": "Numéro",
+      "box": "Boîte",
+      "postalCode": "Code postal",
+      "city": "Ville",
+      "country": "Pays"
     },
     "title": "Parametres",
     "subtitle": "Configurez le suivi des paiements et vos preferences",
@@ -1605,7 +1630,8 @@
       "landlord_final_pending": "Avis avant le troisième rappel",
       "landlord_late": "Avis de retard de paiement",
       "tenant_reply": "Réponse du locataire",
-      "internal_note": "Note interne"
+      "internal_note": "Note interne",
+      "formal_notice": "Mise en demeure"
     },
     "landlordKind": {
       "late": "Avis de retard de paiement",
@@ -1692,6 +1718,60 @@
       "too_far": "Les rappels peuvent être suspendus 120 jours au maximum.",
       "invalid_date": "Cette date n'est pas valide.",
       "failed": "Cela n'a pas fonctionné. Veuillez réessayer."
+    }
+  },
+  "formalNotice": {
+    "cardTitle": "Mise en demeure",
+    "cardDescription": "Générez une lettre recommandée qui met le locataire en demeure pour le loyer encore impayé. Vous l'imprimez et la déposez vous-même en recommandé.",
+    "open": "Créer une mise en demeure",
+    "dialogTitle": "Créer une mise en demeure",
+    "dialogDescription": "Une lettre est créée par locataire du contrat, dans la langue de ce locataire.",
+    "deadlineDays": "Délai de paiement (jours)",
+    "deadlineDate": "La lettre demandera le paiement pour le {date}.",
+    "extraParagraph": "Paragraphe supplémentaire (facultatif)",
+    "extraParagraphHint": "Ajouté après les données de paiement, dans vos propres mots. Laissez vide pour la lettre standard.",
+    "generate": "Créer",
+    "generating": "Création...",
+    "cancel": "Annuler",
+    "close": "Fermer",
+    "resultTitle": "Ce que la lettre réclame",
+    "rentOwed": "Arriérés de loyer",
+    "interest": "Intérêts de retard",
+    "fee": "Frais de retard de paiement",
+    "total": "Total réclamé",
+    "deadline": "Délai de paiement",
+    "lettersTitle": "Lettres",
+    "letterFor": "Lettre pour {name}",
+    "downloadAgain": "Télécharger à nouveau",
+    "notLogged": "Cette lettre n'a pas pu être enregistrée dans l'historique du contrat. Conservez le PDF vous-même.",
+    "postHint": "Déposez chaque lettre en recommandé, puis notez la date de dépôt dans l'historique ci-dessous. Le délai et une éventuelle contestation ultérieure dépendent de cette date.",
+    "openSettings": "Ouvrir les paramètres",
+    "errors": {
+      "failed": "La mise en demeure n'a pas pu être créée.",
+      "nothing_owed": "Rien n'est dû sur ce contrat, il n'y a donc rien à mettre en demeure.",
+      "missing_sender_address": "Votre adresse postale est manquante. Ajoutez-la dans Paramètres, Profil, puis réessayez.",
+      "missing_bank_account": "Aucun compte bancaire n'est lié à ce contrat, la lettre ne peut donc pas indiquer où payer.",
+      "no_tenant": "Aucun locataire n'est lié à ce contrat.",
+      "lease_not_found": "Ce contrat n'a pas été trouvé.",
+      "invalid_deadline": "Indiquez un délai entre 1 et 90 jours."
+    },
+    "posted": {
+      "notPosted": "Pas encore déposée",
+      "button": "Marquer comme déposée",
+      "edit": "Modifier la date de dépôt",
+      "dialogTitle": "Noter le dépôt",
+      "dialogDescription": "Indiquez le jour où vous avez remis la lettre au bureau de poste et, si vous l'avez, le code-barres du récépissé.",
+      "postedOn": "Déposée le",
+      "reference": "Référence de l'envoi recommandé (facultatif)",
+      "save": "Enregistrer",
+      "saved": "Dépôt noté pour le {date}.",
+      "summary": "Déposée le {date}",
+      "summaryWithReference": "Déposée le {date}, référence {reference}",
+      "errors": {
+        "failed": "La date de dépôt n'a pas pu être enregistrée.",
+        "invalid_posted_date": "Indiquez une date entre le jour où la lettre a été créée et aujourd'hui.",
+        "not_a_letter": "Seules les lettres peuvent être marquées comme déposées."
+      }
     }
   },
   "ebWizard": {

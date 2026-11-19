@@ -5,6 +5,9 @@ import { useTranslations } from "next-intl";
 import {
   Mail,
   MessageSquare,
+  MessageCircle,
+  Send,
+  FileText,
   ChevronDown,
   AlertCircle,
 } from "lucide-react";
@@ -33,7 +36,7 @@ import { formatDateTime } from "@/lib/dateLocale";
 interface Communication {
   id: string;
   type: string;
-  channel: "email" | "sms";
+  channel: string;
   recipientName: string | null;
   recipientEmail: string | null;
   recipientPhone: string | null;
@@ -82,7 +85,52 @@ export default function CommunicationsPage() {
     lease_renewal: t("typeLeaseRenewal"),
     lease_termination: t("typeLeaseTermination"),
     other: t("typeOther"),
+    formal_notice: t("typeFormalNotice"),
   };
+
+  const CHANNEL_BADGE: Record<
+    string,
+    { icon: typeof Mail; className: string; label: string }
+  > = {
+    email: {
+      icon: Mail,
+      className: "bg-blue-100 text-blue-700 border-transparent",
+      label: t("channelEmail"),
+    },
+    sms: {
+      icon: MessageSquare,
+      className: "bg-purple-100 text-purple-700 border-transparent",
+      label: t("channelSms"),
+    },
+    whatsapp: {
+      icon: MessageCircle,
+      className: "bg-green-100 text-green-700 border-transparent",
+      label: t("channelWhatsapp"),
+    },
+    signal: {
+      icon: Send,
+      className: "bg-blue-100 text-blue-700 border-transparent",
+      label: t("channelSignal"),
+    },
+    letter: {
+      icon: FileText,
+      className: "bg-amber-100 text-amber-800 border-transparent",
+      label: t("channelLetter"),
+    },
+    internal: {
+      icon: FileText,
+      className: "bg-gray-100 text-gray-700 border-transparent",
+      label: t("channelInternal"),
+    },
+  };
+
+  // An unknown channel keeps the letter styling and shows its raw name.
+  const channelBadge = (channel: string) =>
+    CHANNEL_BADGE[channel] || {
+      icon: FileText,
+      className: "bg-amber-100 text-amber-800 border-transparent",
+      label: channel,
+    };
 
   const statusConfig: Record<string, { variant: "default" | "secondary" | "destructive" | "outline"; className: string }> = {
     queued: { variant: "secondary", className: "bg-yellow-100 text-yellow-700 border-transparent" },
@@ -302,17 +350,16 @@ export default function CommunicationsPage() {
                         {typeLabels[comm.type] || comm.type}
                       </TableCell>
                       <TableCell>
-                        {comm.channel === "email" ? (
-                          <Badge variant="secondary" className="gap-1 bg-blue-100 text-blue-700 border-transparent">
-                            <Mail className="h-3 w-3" />
-                            {t("channelEmail")}
-                          </Badge>
-                        ) : (
-                          <Badge variant="secondary" className="gap-1 bg-purple-100 text-purple-700 border-transparent">
-                            <MessageSquare className="h-3 w-3" />
-                            {t("channelSms")}
-                          </Badge>
-                        )}
+                        {(() => {
+                          const badge = channelBadge(comm.channel);
+                          const Icon = badge.icon;
+                          return (
+                            <Badge variant="secondary" className={`gap-1 ${badge.className}`}>
+                              <Icon className="h-3 w-3" />
+                              {badge.label}
+                            </Badge>
+                          );
+                        })()}
                       </TableCell>
                       <TableCell>
                         <div>
