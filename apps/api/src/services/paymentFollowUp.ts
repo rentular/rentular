@@ -1,4 +1,7 @@
-import { renderTemplate, type EmailOptions } from "../lib/email";
+import { renderTemplate, type EmailAttachment, type EmailOptions } from "../lib/email";
+import { formatEur, formatShortDate, letterLanguage, type LetterLanguage } from "../lib/belgianFormat";
+import type { LetterBlock, LetterDocument } from "../lib/letterDocument";
+import { renderLetterPdf } from "../lib/pdfLetter";
 import { queueEmail, type CommunicationMeta } from "../jobs/emailQueueWorker";
 import { queueSms } from "../jobs/smsQueueWorker";
 import { normalizePhoneNumber } from "../lib/sms";
@@ -23,7 +26,7 @@ import {
 } from "./reminderText";
 
 // Types for the data we expect from the database
-interface OverduePayment {
+export interface OverduePayment {
   paymentId: string;
   leaseId: string;
   amount: number;
@@ -48,7 +51,7 @@ interface OverduePayment {
   carried?: CarriedAmount[] | null;
 }
 
-interface FollowUpSettings {
+export interface FollowUpSettings {
   enabled: boolean;
   friendlyReminderDays: number;
   formalReminderDays: number;
@@ -297,14 +300,7 @@ export async function sendReminder(
 
   // For final reminders, attach a PDF overview
   if (level === "final") {
-    const pdfContent = generateLatePaymentPdf(payment, settings);
-    emailOptions.attachments = [
-      {
-        filename: "late-payment-overview.pdf",
-        content: pdfContent,
-        contentType: "application/pdf",
-      },
-    ];
+    emailOptions.attachments = [await buildFinalReminderAttachment(payment, settings)];
   }
 
   const logMeta = {
@@ -347,64 +343,174 @@ export async function sendReminder(
   }
 }
 
-// Generate a simple PDF overview of the late payment with interest + admin fee breakdown
-function generateLatePaymentPdf(
+/** Every line of the late-payment overview, once per letter language. */
+interface LatePaymentLabels {
+  title: string;
+  tenant: string;
+  property: string;
+  rentDue: string;
+  dueDate: string;
+  daysOverdue: string;
+  interest(rate: string): string;
+  fee: string;
+  total: string;
+  waiver(days: string): string;
+  closing: string;
+}
+
+/**
+ * The record is typed over LetterLanguage, so a language missing a line does
+ * not compile.
+ */
+const LATE_PAYMENT_LABELS: Record<LetterLanguage, LatePaymentLabels> = {
+  nl: {
+    title: "Overzicht laattijdige betaling",
+    tenant: "Huurder",
+    property: "Pand",
+    rentDue: "Verschuldigde huur",
+    dueDate: "Vervaldag",
+    daysOverdue: "Dagen te laat",
+    interest: (rate) => `Verwijlintresten (${rate} % per jaar)`,
+    fee: "Vergoeding voor laattijdige betaling",
+    total: "Totaal verschuldigd",
+    waiver: (days) => `Deze vergoeding vervalt als u binnen ${days} dagen betaalt.`,
+    closing:
+      "Hebt u al betaald of klopt er iets niet, neem dan contact op met uw verhuurder. Anders vragen wij u dit bedrag zo snel mogelijk te betalen.",
+  },
+  fr: {
+    title: "Aperçu du paiement en retard",
+    tenant: "Locataire",
+    property: "Bien",
+    rentDue: "Loyer dû",
+    dueDate: "Échéance",
+    daysOverdue: "Jours de retard",
+    interest: (rate) => `Intérêts de retard (${rate} % par an)`,
+    fee: "Indemnité pour paiement tardif",
+    total: "Total dû",
+    waiver: (days) => `Cette indemnité est annulée si vous payez dans les ${days} jours.`,
+    closing:
+      "Si vous avez déjà payé ou si quelque chose n'est pas correct, contactez votre bailleur. Sinon, merci de régler ce montant dès que possible.",
+  },
+  de: {
+    title: "Übersicht der verspäteten Zahlung",
+    tenant: "Mieter",
+    property: "Objekt",
+    rentDue: "Geschuldete Miete",
+    dueDate: "Fälligkeit",
+    daysOverdue: "Tage im Verzug",
+    interest: (rate) => `Verzugszinsen (${rate} % pro Jahr)`,
+    fee: "Entschädigung für verspätete Zahlung",
+    total: "Geschuldeter Gesamtbetrag",
+    waiver: (days) => `Diese Entschädigung entfällt, wenn Sie innerhalb von ${days} Tagen zahlen.`,
+    closing:
+      "Wenn Sie bereits bezahlt haben oder etwas nicht stimmt, wenden Sie sich bitte an Ihren Vermieter. Andernfalls bitten wir Sie, diesen Betrag so bald wie möglich zu begleichen.",
+  },
+  en: {
+    title: "Late payment overview",
+    tenant: "Tenant",
+    property: "Property",
+    rentDue: "Rent amount due",
+    dueDate: "Due date",
+    daysOverdue: "Days overdue",
+    interest: (rate) => `Late payment interest (${rate} % per year)`,
+    fee: "Late payment fee",
+    total: "Total amount owed",
+    waiver: (days) => `This fee is waived if you pay within ${days} days.`,
+    closing:
+      "If you have already paid or something is not right, please contact your landlord. Otherwise, please settle this amount as soon as you can.",
+  },
+};
+
+/** The rate the way the reader's language writes a decimal. */
+function formatInterestRate(rate: number, language: LetterLanguage): string {
+  const text = String(Math.round(rate * 100) / 100);
+  return language === "en" ? text : text.replace(".", ",");
+}
+
+/**
+ * The overview attached to the final reminder, as a drawable document.
+ *
+ * Pure, and deliberately the same arithmetic the reminder e-mail uses:
+ * interest only when the owner switched it on, the fee only when the lease
+ * charges one, and the total is the sum of exactly the lines above it.
+ */
+export function buildLatePaymentOverviewDocument(
   payment: OverduePayment,
-  settings: FollowUpSettings
-): Buffer {
+  settings: FollowUpSettings,
+): LetterDocument {
+  const language = letterLanguage(payment.tenantLanguage);
+  const labels = LATE_PAYMENT_LABELS[language];
   const interestAmount = settings.interestEnabled
-    ? calculateInterest(
-        payment.amount,
-        payment.daysPastDue,
-        settings.annualInterestRate
-      )
+    ? calculateInterest(payment.amount, payment.daysPastDue, settings.annualInterestRate)
     : 0;
-  const adminFee = payment.latePaymentFeeEnabled
-    ? payment.latePaymentFeeAmount
-    : 0;
-  const totalOwed = payment.amount + interestAmount + adminFee;
+  const fee = payment.latePaymentFeeEnabled ? payment.latePaymentFeeAmount : 0;
+  const total = Math.round((payment.amount + interestAmount + fee) * 100) / 100;
 
-  const content = [
-    "LATE PAYMENT OVERVIEW",
-    "====================",
-    "",
-    `Tenant: ${payment.tenantName}`,
-    `Property: ${payment.propertyName}`,
-    "",
-    "Payment Details:",
-    `  Rent amount due: EUR ${payment.amount.toFixed(2)}`,
-    `  Due date: ${formatReminderDate(payment.dueDate)}`,
-    `  Days overdue: ${payment.daysPastDue}`,
-    "",
+  const amounts: Array<{ label: string; value: string; bold?: boolean }> = [
+    { label: labels.rentDue, value: formatEur(payment.amount) },
+    { label: labels.dueDate, value: formatShortDate(payment.dueDate) },
+    { label: labels.daysOverdue, value: String(payment.daysPastDue) },
   ];
-
   if (settings.interestEnabled) {
-    content.push(
-      "Interest Calculation:",
-      `  Annual interest rate: ${settings.annualInterestRate}%`,
-      `  Interest accrued: EUR ${interestAmount.toFixed(2)}`,
-      ""
-    );
+    amounts.push({
+      label: labels.interest(formatInterestRate(settings.annualInterestRate, language)),
+      value: formatEur(interestAmount),
+    });
   }
-
   if (payment.latePaymentFeeEnabled) {
-    content.push(
-      "Administrative Fee:",
-      `  Late payment fee: EUR ${adminFee.toFixed(2)}`,
-      `  Enforcement: ${payment.latePaymentFeeEnforcement === "soft" ? "Soft (waived if paid within 7 days)" : "Strict (non-waivable)"}`,
-      ""
-    );
+    amounts.push({ label: labels.fee, value: formatEur(fee) });
   }
+  amounts.push({ label: labels.total, value: formatEur(total), bold: true });
 
-  content.push(
-    "--------------------",
-    `TOTAL AMOUNT OWED: EUR ${totalOwed.toFixed(2)}`,
-    "",
-    "If you have already paid or something is not right, please contact your landlord. Otherwise, please settle this amount as soon as you can."
-  );
+  const blocks: LetterBlock[] = [
+    {
+      kind: "paragraph",
+      text: `${labels.tenant}: ${payment.tenantName}\n${labels.property}: ${payment.propertyName}`,
+    },
+    { kind: "amounts", rows: amounts },
+  ];
+  // Under soft enforcement the fee disappears if the tenant pays quickly, so
+  // the document has to say so: it is the one line that can still save money.
+  if (payment.latePaymentFeeEnabled && payment.latePaymentFeeEnforcement === "soft") {
+    blocks.push({ kind: "paragraph", text: labels.waiver(String(SOFT_ENFORCEMENT_GRACE_DAYS)) });
+  }
+  blocks.push({ kind: "paragraph", text: labels.closing });
 
-  // TODO: Replace with proper PDF generation (pdfkit, puppeteer, etc.)
-  return Buffer.from(content.join("\n"), "utf-8");
+  return {
+    language,
+    title: labels.title,
+    senderLines: [payment.ownerName],
+    addresseeLines: [payment.tenantName],
+    placeAndDate: "",
+    subject: labels.title,
+    blocks,
+  };
+}
+
+/** The overview as PDF bytes, drawn by the shared letter renderer. */
+export async function generateLatePaymentPdf(
+  payment: OverduePayment,
+  settings: FollowUpSettings,
+): Promise<Buffer> {
+  return renderLetterPdf(buildLatePaymentOverviewDocument(payment, settings));
+}
+
+/**
+ * The attachment as the queue can carry it: a base64 string, never a Buffer.
+ * The reminder goes out through BullMQ, which JSON-serialises job data, and a
+ * revived Buffer makes nodemailer throw in the worker.
+ */
+export async function buildFinalReminderAttachment(
+  payment: OverduePayment,
+  settings: FollowUpSettings,
+): Promise<EmailAttachment> {
+  const pdf = await generateLatePaymentPdf(payment, settings);
+  return {
+    filename: "late-payment-overview.pdf",
+    content: pdf.toString("base64"),
+    encoding: "base64",
+    contentType: "application/pdf",
+  };
 }
 
 export { DEFAULT_SETTINGS, calculateInterest };
