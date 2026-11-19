@@ -202,7 +202,17 @@
     "preferredChannelHint": "Wie automatische Erinnerungen diesen Mieter erreichen. SMS/WhatsApp brauchen eine Telefonnummer.",
     "channelEmail": "E-Mail",
     "channelSms": "SMS",
-    "channelWhatsapp": "WhatsApp"
+    "channelWhatsapp": "WhatsApp",
+    "correspondence": {
+      "title": "Korrespondenzadresse",
+      "description": "Nur ausfüllen, wenn Briefe an eine andere Adresse als die Mietsache gehen müssen, zum Beispiel wenn der Mieter dort nicht mehr wohnt.",
+      "street": "Straße",
+      "streetNumber": "Hausnummer",
+      "box": "Box",
+      "postalCode": "Postleitzahl",
+      "city": "Stadt",
+      "country": "Land"
+    }
   },
   "leases": {
     "title": "Mietvertraege",
@@ -396,6 +406,7 @@
     "typeLeaseRenewal": "Mietverlaengerung",
     "typeLeaseTermination": "Mietkuendigung",
     "typeOther": "Sonstiges",
+    "typeFormalNotice": "Inverzugsetzung",
     "statusQueued": "In Warteschlange",
     "statusSent": "Gesendet",
     "statusDelivered": "Zugestellt",
@@ -403,6 +414,10 @@
     "statusBounced": "Abgelehnt",
     "channelEmail": "E-Mail",
     "channelSms": "SMS",
+    "channelWhatsapp": "WhatsApp",
+    "channelSignal": "Signal",
+    "channelLetter": "Brief",
+    "channelInternal": "Interne Notiz",
     "loadError": "Kommunikation konnte nicht geladen werden. Bitte versuchen Sie es erneut."
   },
   "settings": {
@@ -414,6 +429,16 @@
       "individual": "Privatperson",
       "company": "Unternehmen",
       "vat": "USt-IdNr."
+    },
+    "senderAddress": {
+      "title": "Postadresse",
+      "description": "Wird als Absender auf Briefe an Mieter gedruckt, zum Beispiel auf eine Inverzugsetzung.",
+      "street": "Straße",
+      "streetNumber": "Hausnummer",
+      "box": "Box",
+      "postalCode": "Postleitzahl",
+      "city": "Stadt",
+      "country": "Land"
     },
     "title": "Einstellungen",
     "subtitle": "Konfigurieren Sie Ihre Zahlungsverfolgung und Praeferenzen",
@@ -1605,7 +1630,8 @@
       "landlord_final_pending": "Hinweis vor der dritten Mahnung",
       "landlord_late": "Hinweis auf Zahlungsverzug",
       "tenant_reply": "Antwort des Mieters",
-      "internal_note": "Interne Notiz"
+      "internal_note": "Interne Notiz",
+      "formal_notice": "Inverzugsetzung"
     },
     "landlordKind": {
       "late": "Hinweis auf Zahlungsverzug",
@@ -1692,6 +1718,60 @@
       "too_far": "Mahnungen können höchstens 120 Tage pausiert werden.",
       "invalid_date": "Das ist kein gültiges Datum.",
       "failed": "Das hat nicht geklappt. Bitte versuchen Sie es erneut."
+    }
+  },
+  "formalNotice": {
+    "cardTitle": "Inverzugsetzung",
+    "cardDescription": "Erstellen Sie ein Einschreiben, das den Mieter für die noch offene Miete in Verzug setzt. Sie drucken den Brief selbst und geben ihn per Einschreiben bei der Post ab.",
+    "open": "Inverzugsetzung erstellen",
+    "dialogTitle": "Inverzugsetzung erstellen",
+    "dialogDescription": "Pro Mieter im Vertrag wird ein Brief erstellt, in der Sprache dieses Mieters.",
+    "deadlineDays": "Zahlungsfrist (Tage)",
+    "deadlineDate": "Der Brief verlangt Zahlung bis zum {date}.",
+    "extraParagraph": "Zusätzlicher Absatz (optional)",
+    "extraParagraphHint": "Kommt nach den Zahlungsdaten, in Ihren eigenen Worten. Leer lassen für den Standardbrief.",
+    "generate": "Erstellen",
+    "generating": "Wird erstellt...",
+    "cancel": "Abbrechen",
+    "close": "Schließen",
+    "resultTitle": "Was der Brief fordert",
+    "rentOwed": "Mietrückstand",
+    "interest": "Verzugszinsen",
+    "fee": "Kosten für die verspätete Zahlung",
+    "total": "Gesamtforderung",
+    "deadline": "Zahlungsfrist",
+    "lettersTitle": "Briefe",
+    "letterFor": "Brief für {name}",
+    "downloadAgain": "Erneut herunterladen",
+    "notLogged": "Dieser Brief konnte nicht im Vertragsverlauf gespeichert werden. Bewahren Sie das PDF selbst auf.",
+    "postHint": "Geben Sie jeden Brief per Einschreiben ab und notieren Sie danach das Datum der Aufgabe im Verlauf unten. Die Frist und ein späterer Streit hängen von diesem Datum ab.",
+    "openSettings": "Einstellungen öffnen",
+    "errors": {
+      "failed": "Die Inverzugsetzung konnte nicht erstellt werden.",
+      "nothing_owed": "Auf diesem Vertrag ist nichts offen, es gibt also nichts in Verzug zu setzen.",
+      "missing_sender_address": "Ihre Postadresse fehlt. Tragen Sie sie unter Einstellungen, Profil ein und versuchen Sie es dann erneut.",
+      "missing_bank_account": "Mit diesem Vertrag ist kein Bankkonto verknüpft, der Brief kann daher nicht angeben, wohin gezahlt werden soll.",
+      "no_tenant": "Mit diesem Vertrag ist kein Mieter verknüpft.",
+      "lease_not_found": "Dieser Vertrag wurde nicht gefunden.",
+      "invalid_deadline": "Geben Sie eine Frist zwischen 1 und 90 Tagen an."
+    },
+    "posted": {
+      "notPosted": "Noch nicht aufgegeben",
+      "button": "Als aufgegeben markieren",
+      "edit": "Datum der Aufgabe ändern",
+      "dialogTitle": "Aufgabe notieren",
+      "dialogDescription": "Geben Sie den Tag an, an dem Sie den Brief bei der Post abgegeben haben, und, wenn Sie ihn haben, den Strichcode auf dem Beleg.",
+      "postedOn": "Aufgegeben am",
+      "reference": "Referenz der Einschreibesendung (optional)",
+      "save": "Speichern",
+      "saved": "Aufgabe für den {date} notiert.",
+      "summary": "Aufgegeben am {date}",
+      "summaryWithReference": "Aufgegeben am {date}, Referenz {reference}",
+      "errors": {
+        "failed": "Das Datum der Aufgabe konnte nicht gespeichert werden.",
+        "invalid_posted_date": "Geben Sie ein Datum zwischen dem Tag der Erstellung des Briefes und heute an.",
+        "not_a_letter": "Nur Briefe können als aufgegeben markiert werden."
+      }
     }
   },
   "ebWizard": {
