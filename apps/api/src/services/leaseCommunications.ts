@@ -98,6 +98,10 @@ export type PastCommunication = {
   attachments: Array<{ name: string; size: number; type: string }>;
   /** Inbound only: the outgoing message this reply answers. */
   matchedCommunicationId: string | null;
+  /** Letters only: the day it was handed in at the post office (YYYY-MM-DD). */
+  postedOn: string | null;
+  /** Letters only: registered-item reference, the bpost barcode. */
+  postedReference: string | null;
   queuedAt: string | null;
   sentAt: string | null;
   createdAt: string | null;
@@ -154,6 +158,7 @@ export function toPastCommunication(
     status: string;
     errorMessage: string | null;
     metadata: unknown;
+    externalId?: string | null;
     direction?: string | null;
     queuedAt: unknown;
     sentAt: unknown;
@@ -221,6 +226,10 @@ export function toPastCommunication(
           .map((a) => ({ name: String(a.name ?? ""), size: Number(a.size ?? 0), type: String(a.type ?? "") }))
       : [],
     matchedCommunicationId: str(meta.matchedCommunicationId),
+    // Letters only: on an e-mail or SMS row externalId is a queue job id, which
+    // must never be shown as proof that something was posted.
+    postedOn: row.channel === "letter" ? str(meta.postedOn) : null,
+    postedReference: row.channel === "letter" ? str(row.externalId) : null,
     queuedAt: iso(row.queuedAt),
     sentAt: iso(row.sentAt),
     createdAt: iso(row.createdAt),
