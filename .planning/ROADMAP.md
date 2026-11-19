@@ -262,7 +262,7 @@ Plans:
 **Goal:** A landlord can generate a print-ready aangetekende ingebrekestelling (formal notice of default) for a contract in rent arrears, in the tenant's language, containing everything Belgian law and a vrederechter expect: sender and addressee postal addresses, the contract reference, the arrears per month, interest and late fee, a payment deadline, and the warning that judicial dissolution will be sought. The letter is downloadable, the landlord posts it registered, and the app logs it as a `letter` communication so the arrears file is complete when the case goes to the justice of the peace.
 **Requirements**: TBD
 **Depends on:** Phase 11
-**Plans:** 6/9 plans executed
+**Plans:** 7/9 plans executed
 
 **Known starting points (from code review 2026-11-18):**
 - Nothing like it exists. Reminders stop at friendly/formal/final e-mail/SMS/WhatsApp (`apps/api/src/services/paymentFollowUp.ts`, `manualReminder.ts`, `POST /api/v1/payments/send-reminder`).
@@ -276,7 +276,7 @@ Plans:
 - [x] 11.2-02-PLAN.md: address columns, formal_notice enum value, hand-written DDL file, address fields on the settings and tenant routes (wave 1)
 - [x] 11.2-03-PLAN.md: letter document contract, totals and deadline arithmetic, letter copy in NL/FR/DE/EN (wave 1)
 - [x] 11.2-04-PLAN.md: A4 PDF renderer on pdfkit, real queue-safe PDF on the final reminder (wave 2)
-- [ ] 11.2-05-PLAN.md: formal notice orchestrator and POST /payments/formal-notice (wave 3)
+- [x] 11.2-05-PLAN.md: formal notice orchestrator and POST /payments/formal-notice (wave 3)
 - [x] 11.2-06-PLAN.md: mark a letter as posted, posting date and reference in the contract history (wave 2)
 - [x] 11.2-07-PLAN.md: locale strings in four languages, address forms in Settings and on the tenant, letter labels in the communications list (wave 2)
 - [ ] 11.2-08-PLAN.md: generate dialog with download and mark-as-posted control on the contract page (wave 4)
